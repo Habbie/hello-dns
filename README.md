@@ -8,12 +8,14 @@ relevant and useful RFCs.
 
 Although we start from relatively basic principles, the reader is expected
 to know what IP addresses are, what a (stub) resolver is and what an
-authoritative server is supposed to do. When in doubt: authoritative servers
-'host' DNS, 'resolvers' look up things over at authoritative servers and
-clients run 'stub resolvers' to look things up over at resolvers.
+authoritative server is supposed to do.  When in doubt: authoritative
+servers 'host' DNS data, 'resolvers' look up things over at authoritative
+servers and clients run 'stub resolvers' to look things up over at
+resolvers.  This document is aimed at developers, but may also be of aid for
+administrators.
 
 DNS was originally written down in August 1979 in 'IEN 116', a parallel
-series of documents describing the internet.  IEN 116 era DNS is not
+series of documents describing the internet.  IEN 116-era DNS is not
 compatible with today's DNS.  In 1983, RFC 882 was released, and stunningly
 enough, an implementation of this 35 year old document would function
 on the internet and be interoperable. 
@@ -22,11 +24,14 @@ DNS attained its modern form in 1987 when RFC 1034 and 1035 were published.
 Although most of 1034/1035 remains valid, these standards are not that easy
 to read because they were written in a very different time.
 
-The main goal of this document is not to contradict 1034 and 1035 but to
-provide an easier entrypoint into DNS.
+The main goal of this document is not to contradict the DNS RFCs but to
+provide an easier entrypoint into understanding the Domain Name System.
 
 If you will, the goal is to be a mini "[TCP/IP
 Illustrated](https://en.wikipedia.org/wiki/TCP/IP_Illustrated)" of DNS.
+
+I want to thank Ólafur Guðmundsson and Job Snijders for their input and
+enthusiasm for improving the state of DNS.
 
 ## Layout
 The content is spread out over several documents:
@@ -39,7 +44,7 @@ The content is spread out over several documents:
  Cookies
 
 We start off with a general introduction of DNS basics: what is a resource
-record, what is a RRSET, what is a zone, what is a zone-cut, how are packets
+record, what is an RRSET, what is a zone, what is a zone-cut, how are packets
 laid out. This part is required reading for anyone ever wanting to query a
 nameserver or emit a valid response.
 
@@ -49,7 +54,7 @@ questions to a resolver, or what a stub-resolver can expect.
 The next part is about what an authoritative server is supposed to do. On
 top of this, we describe in slightly less detail how a resolver could
 operate. Finally, there is a section on optional elements like EDNS, TSIG,
-Dynamic Upates andDNSSEC
+Dynamic Upates and DNSSEC
 
 Note that this file, which describes DNS basics, absolutely must be read from
 beginning to end in order for the rest of the documents (or DNS) to make
@@ -81,6 +86,9 @@ A DNS message has:
  * An authority section
  * An additional section
 
+In basic DNS, query messages should have no answer, authority or additional
+sections. 
+
 The header has the following fields that are useful for queries and
 responses:
 
@@ -90,15 +98,14 @@ responses:
  * RD: Set to indicate that this question wants *recursion* 
  
 Relevant for responses:
- * AA: This answer has Authoritative Answers
+ * AA: This response has Authoritative Answers
  * RA: Recursive service was available
  * TC: Not all the required parts of the answer fit in the message
 
-In basic DNS, query messages should have no answer, authority or additional
-sections. DNS queries are mostly sent over UDP, and UDP packets can easily
-be spoofed. To recognize the authentic response to a query it is important
-that the ID field is random or at least unpredictable. This is however not
-enough protection, so the source port of a UDP DNS query must also be
+DNS queries are mostly sent over UDP, and UDP packets can easily be spoofed. 
+To recognize the authentic response to a query it is important that the ID
+field is random or at least unpredictable.  This is however not enough
+protection, so the source port of a UDP DNS query must also be
 unpredictable.
 
 DNS messages can also be sent over TCP/IP. Because TCP is not a datagram
@@ -536,3 +543,4 @@ These entries are mirrored in the 'ietf.org' zone hosted on ns1.ietf.org and
 ns2.ietf.org. And as with the NS records, any queries for ns1.ietf.org sent
 to the org servers receive AA=0 answers, whereas ns1.ietf.org itself answers
 with AA=1.
+
