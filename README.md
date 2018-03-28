@@ -37,7 +37,7 @@ enthusiasm for improving the state of DNS.
 The content is spread out over several documents:
 
  * The core of DNS
- * Relevant to stub resolvers and applications
+ * [Relevant to stub resolvers and applications](stub.md)
  * Relevant to authoritative servers
  * Relevant to resolvers
  * Optional elements: EDNS, TSIG, Dynamic Updates, DNSSEC, DNAME, DNS
@@ -110,7 +110,9 @@ unpredictable.
 
 DNS messages can also be sent over TCP/IP. Because TCP is not a datagram
 oriented protocol, each DNS message in TCP/IP is preceded by a 16 bit
-network endian length field.
+network endian length field. 
+
+DNS servers must listen on both UDP and TCP, port 53.
 
 The header of a question for the IPv6 address of www.ietf.org looks like
 this:
@@ -330,12 +332,12 @@ should never happen.
 
 ## Zone files
 Zone files are one way of storing DNS data, but these are not integral to
-the operation of a nameserver. The zone file format is standardised, but it
-is highly non-trivial to parse. It is entirely possible to write useful
-nameserver that do not read or write DNS zone files. When embarking on
-parsing zonefiles, do not do so lightly. As an example, various fields
-within a single line can appear in many orders. Most fields are optional,
-and some will then be copied from the previous line. But not all.
+the operation of a nameserver.  The zone file format is standardised, but it
+is highly non-trivial to parse.  It is entirely possible to write useful
+nameserver that does not read or write DNS zone files.  When embarking on
+parsing zonefiles, do not do so lightly.  As an example, various fields
+within a single line can appear in many orders.  Most fields are optional,
+and some will then be copied from the previous line.  But not all.
 
 Of specific note, many people have attempted to write a grammar (parser) for
 zonefiles and it is almost impossible. 
@@ -543,4 +545,94 @@ These entries are mirrored in the 'ietf.org' zone hosted on ns1.ietf.org and
 ns2.ietf.org. And as with the NS records, any queries for ns1.ietf.org sent
 to the org servers receive AA=0 answers, whereas ns1.ietf.org itself answers
 with AA=1.
+
+Note that for various reasons the AA=0 answer from the parent zone may be
+different than the AA=1 answer, and resolvers must be aware of the
+difference.
+
+## Further complexity
+
+DNS contains two ways of making the life of an administrator easier in
+theory and frequently harder in practice: CNAMEs and wildcards. 
+
+Secondly, original DNS as noted requires sub-512 byte responses.
+
+Finally, DNS has a complicated way of signalling that a name or RRSET does
+not exist.
+
+### CNAME
+A CNAME provides the 'Canonical Name' for another DNS name. For example:
+
+```
+www	IN	CNAME	www.ietf.org.cdn.cloudflare.net.
+```
+
+This is frequently used to redirect to a Content Distribution Network. The
+CNAME is for a name, and not for a type. This means that *any* query for
+www.ietf.org is sent to cloudflare. This simultaneously means that what
+everyone wants is impossible:
+
+```
+$origin ietf.org
+@	IN	CNAME this.does.not.work.int.
+```
+
+This collides with the SOA and NS records, which are then also redirected
+and not found.  Frequently doing this 'apex CNAME' appears to work, but it
+really doesn't.
+
+In hindsight, the CNAME should have been 'typed' to apply only to specific
+query types. 
+
+### Wildcards
+Wildcards allow for the following:
+
+```
+$origin ietf.org
+*	IN	A	192.0.2.1
+	IN	AAAA	2001:db8:85a3::8a2e:0370:7334
+smtp	IN	A	192.0.2.222
+```
+
+A query for the A record of 'smtp.ietf.org' will return 192.0.2.222. A query
+for 'www.ietf.org' however will return 192.0.2.1.
+
+Interestingly, as another example of how DNS really is a tree, a query for
+the AAAA record of smtp.ietf.org will return..  nothing.  This is because
+the node 'smtp.ietf.org' does exist, and processing ends there.  The
+wildcard match will not proceed to the '*' entry.
+
+### Truncation
+Without implementing the optional EDNS protocol extension, all UDP responses
+must fit in 512 bytes of payload. If on writing an answer a server finds
+itself exceding this limit, it must truncate the packet and set the TC bit
+to 1.
+
+The originator of the query will then resend the query over TCP.
+
+Sometimes DNS responses contain optional data that could be left out, and
+this could be done to stay under the 512 byte limit.
+
+It is recommended however to keep it simple and send an empty response
+packet with TC=1 whenever the byte limit is reached.
+
+### Names and nodes that do not exist
+DNS queries can fail to match in two ways: the whole node does not exist,
+or, the requested type is not present at that node.
+
+As an example of the first case, 'doesnotexist.ietf.org' really does not
+exist, which leads to a response with RCODE NXDOMAIN and no answer records.
+
+As an example of the second case, 'www.ietf.org' does exist, but has no MX
+record. The RCODE is normal, but there are no answer records.
+
+Empty answers however are hard to cache. To alleviate this situation, in
+these cases the authoritative server sends a copy of the SOA record in the
+Authority section of the response. The TTL of that record tells us how long
+the knowledge of 'no such name' or 'no such data' can be cached.
+
+## That's it!
+This is the core of DNS. There are quite some parts that have not been
+discussed, but based on the explanations above, it is possible to write a
+compliant authoritative server. 
 
