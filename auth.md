@@ -91,12 +91,12 @@ that are only applicable to resolvers, with new instructions in **bold**.
 This description is valid, but its 'node' language may be confusing. An
 alternate way to describe the process is as follows:
 
- 2. If the query name is 'www.ietf.org', check the store for a  
-    'www.ietf.org' zone.  If not found, try 'ietf.org', that is not found try  
-    'org', otherwise try the root zone. If no zones were found, send out  
+ 2. If the query name is `www.ietf.org`, check the store for a  
+    `www.ietf.org` zone.  If not found, try `ietf.org`, that is not found try  
+    `org`, otherwise try the root zone. If no zones were found, send out  
     REFUSED.  
- 3. Within the first zone that matched (say, 'org'), search for 'www.ietf'.
-    If that was not found, search for 'ietf' etc etc
+ 3. Within the first zone that matched (say, `org`), search for `www.ietf`.
+    If that was not found, search for `ietf` etc etc
 
 This is effectively the same thing but implemented on a regular key/value
 lookup engine.
@@ -107,9 +107,9 @@ but not in great detail, and not coherently. [RFC
 4592](https://tools.ietf.org/html/rfc4592) by comparison discusses wildcards
 in exhaustive detail. 
 
-4592 specifically notes that 'one.two.three.ietf.org' is still matched by
-'*.ietf.org'. It also specifies that 'one.*.three.ietf.org' is a valid DNS
-name, but that it will only match itself, and not 'one.two.three.ietf.org'.
+4592 specifically notes that `one.two.three.ietf.org` is still matched by
+`*.ietf.org`. It also specifies that `one.*.three.ietf.org` is a valid DNS
+name, but that it will only match itself, and not `one.two.three.ietf.org`.
 
 4592 attempts to clarify every possible misunderstanding relating to
 wildcards (including interactions with DNSSEC), but is itself a confusing
@@ -122,17 +122,17 @@ exciting places.
 
 # SOA Records
 There is only one SOA that is guaranteed to exist on the internet and that
-is the one for the root zone (called '.').  As of 2018, it looks like this:
+is the one for the root zone (called `.`).  As of 2018, it looks like this:
 
 ```
 .   86400   IN   SOA   a.root-servers.net. nstld.verisign-grs.com. 2018032802 1800 900 604800 86400
 ```
 
 This says: the authoritative server for the root zone is called
-'a.root-servers.net'. This name is however only used for diagnostics.
+`a.root-servers.net`. This name is however only used for diagnostics.
 Secondly, nstld@verisign-grs.com is the email address of the zone
-maintainer. Note that the '@' is replaced by a dot. Specifically, if the
-email address had been 'nstld.maintainer@verisign-grs.com', this would have
+maintainer. Note that the `@` is replaced by a dot. Specifically, if the
+email address had been `nstld.maintainer@verisign-grs.com`, this would have
 been stored as nstld\\.maintainer.verisign-grs.com. This name would then
 still be 3 labels long, but the first one has a dot in it.
 
@@ -141,7 +141,7 @@ all means not always, this is a date in proper order (YYYYMMDD), followed by
 two digits indicating updates over the day.  This serial number is used for
 replication purposes, as are the following 3 numbers.
 
-Zones are hosted on 'masters'. Meanwhile, 'slave' servers poll the master
+Zones are hosted on 'masters`. Meanwhile, 'slave' servers poll the master
 for updates, and pull down a new zone if they see new contents, as noted by
 an increase in serial number.
 
@@ -196,5 +196,6 @@ In short, a notification is a regular DNS message, sent out as a query, but
 then with OPCODE=5. Notifications are repeated until acknowledged by the
 slave server.
 
+# TBC
 
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
