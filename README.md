@@ -38,10 +38,10 @@ The content is spread out over several documents:
 
  * The core of DNS
  * [Relevant to stub resolvers and applications](stub.md)
- * Relevant to authoritative servers
- * Relevant to resolvers
- * Optional elements: EDNS, TSIG, Dynamic Updates, DNSSEC, DNAME, DNS
- Cookies
+ * [Relevant to authoritative servers](auth.md)
+ * [Relevant to resolvers](resolvers.md)
+ * Optional elements: [EDNS, TSIG, Dynamic Updates, DNSSEC, DNAME, DNS
+ Cookies](optional.md)
 
 We start off with a general introduction of DNS basics: what is a resource
 record, what is an RRSET, what is a zone, what is a zone-cut, how are packets
@@ -62,7 +62,7 @@ sense.
 
 ## DNS Basics
 In this section we will initially ignore optional extensions that were added
-to DNS later, specifically EDNS and DNSSEC which requires EDNS to function.
+to DNS later, specifically EDNS and DNSSEC.
 
 This file corresponds roughly to the fundamental parts of RFCs 1034, 1035,
 1982, 2181, 2308, 3596, 4343, 5452, 6604.
@@ -422,7 +422,7 @@ $origin www.ietf.org
 A zone always starts with a SOA or Start Of Authority record.  A SOA record
 is DNS metadata.  It stores various things that may be of interest about a
 zone, like the email address of the maintainer, the name of the most
-authoritative server.  It also has vales that describe how or if a zone
+authoritative server.  It also has values that describe how or if a zone
 needs to be replicated.  Finally, the SOA record has a number that
 influences TTL values for names that do not exist.
 
