@@ -358,7 +358,7 @@ should never happen.
 
 ## Zone files
 Zone files are one way of storing DNS data, but these are not integral to
-the operation of a nameserver.  The zone file format is standardised, but it
+the operation of a nameserver.  The zone file format is standardized, but it
 is highly non-trivial to parse.  It is entirely possible to write useful
 nameserver that does not read or write DNS zone files.  When embarking on
 parsing zonefiles, do not do so lightly.  As an example, various fields
@@ -614,7 +614,7 @@ record is created on the fly.
 ## Truncation
 Without implementing the optional EDNS protocol extension, all UDP responses
 must fit in 512 bytes of payload. If on writing an answer a server finds
-itself exceding this limit, it must truncate the packet and set the TC bit
+itself exceeding this limit, it must truncate the packet and set the TC bit
 to 1.
 
 The originator of the query will then resend the query over TCP.

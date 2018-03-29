@@ -19,7 +19,7 @@ resolver a stub talks to should take care of everything.
 XXX - where does it say so?
 
 A few things do matter. For security purposes, the stub resolver must take
-good care to fully randomise source port and ID fields. It must also guard
+good care to fully randomize source port and ID fields. It must also guard
 against sending out multiple equivalent queries at the same time as this
 would allow a 'birthday attack' that could spoof in harmful answers.
 

@@ -6,7 +6,7 @@ There are now between 1500 and 3000 pages of RFC documents describing DNS,
 containing around 1700 'MUST' statements.
 
 Not only are there a lot of documents, the earlier ones are not that easy to
-read for newcomers, and contain a lot of obsoleted bagage that new readers
+read for newcomers, and contain a lot of obsoleted baggage that new readers
 do not know they can skip.
 
 Inspired by the wonderful books by W. Richard Stevens (like [TCP
