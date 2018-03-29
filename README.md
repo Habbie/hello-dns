@@ -51,7 +51,7 @@ The content is spread out over several documents:
  * The core of DNS (this file)
  * [Relevant to stub resolvers and applications](stub.md.html)
  * [Relevant to authoritative servers](auth.md.html)
- * [Relevant to resolvers](resolvers.md.html)
+ * [Relevant to resolvers](resolver.md.html)
  * Optional elements: [EDNS, TSIG, Dynamic Updates, DNAME, DNS Cookies](optional.md.html)
  * [DNSSEC](dnssec.md.html)
 
