@@ -10,7 +10,7 @@ protocol more accessible, while maintaining full alignment with all relevant
 and useful RFCs.
 
 This effort is developed cooperatively on GitHub, the repository can be
-found [https://github.com/ahupowerdns/hello-dns/](ghere) and help is highly
+found [https://github.com/ahupowerdns/hello-dns/](here) and help is highly
 welcome!
 
 Although we start from relatively basic principles, the reader is expected
@@ -66,7 +66,7 @@ questions to a resolver, or what a stub-resolver can expect.
 The next part is about what an authoritative server is supposed to do. On
 top of this, we describe in slightly less detail how a resolver could
 operate. Finally, there is a section on optional elements like EDNS, TSIG,
-Dynamic Upates and DNSSEC
+Dynamic Updates and DNSSEC
 
 RFCs, especially earlier ones, tend to describe servers that perform both
 authoritative and resolver functions. This turns out to make both code and
@@ -197,7 +197,7 @@ different 'classes', but the semantics of this were not specified completely
 and it was not really implemented.  For now, always set class to 1.
 
 Of specific note is the somewhat unusual way the name 'www.ietf.org' is
-serialized in DNS.  'www.ietf.org' consists of 3 'labels' of lenghts 3, 4
+serialized in DNS.  'www.ietf.org' consists of 3 'labels' of lengths 3, 4
 and 3 respectively.  In DNS messages, this is encoded as the value 3, then
 www, then the value 4, then ietf, then 3 followed by org.  Then there is a
 trailing 0 which denotes this is the end.
@@ -260,7 +260,7 @@ a lot like the original DNS query. Here is the beginning of a response:
 *****************************************************************
 
 Note that QR is now set to 1 to denote a response.  The 'AA' bit was set
-because this answer came from a from a server authoriative for this name.
+because this answer came from a from a server authoritative for this name.
 
 In addition, ANCOUNT is now set to '1', indicating a single answer is to be
 found in the message, immediately after the original question, which has been
