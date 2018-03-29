@@ -1,6 +1,7 @@
 # Intro
 
 xxx
+RFC1982
 
 ## SOA Records
 There is only one SOA that is guaranteed to exist on the internet and that
@@ -10,9 +11,6 @@ is the one for the root zone (called '.').  As of 2018, it looks like this:
 .   86400   IN   SOA   a.root-servers.net. nstld.verisign-grs.com. 2018032802 1800 900 604800 86400
 ```
 
-For details of what all these fields mean, please see the [authoritative
-server document](auth.md).
- 
 This says: the authoritative server for the root zone is called
 'a.root-servers.net'. This name is however only used for diagnostics.
 Secondly, nstld@verisign-grs.com is the email address of the zone

@@ -1,10 +1,17 @@
-# hello-dns
-Hello and welcome to DNS!
+                <meta charset="utf-8" emacsmode="-*- markdown -*-">
+                            **A warm welcome to DNS**
 
-This document attempts to provide a correct introduction to the Domain Name
-System as of 2018. The original RFCs remain the authoritative source of
-normative text, but this document tries to be in full alignment with all
-relevant and useful RFCs.
+# Hello, and welcome to DNS!
+
+This series of documents attempts to provide a correct introduction to the
+Domain Name System as of 2018.  The original RFCs remain the authoritative
+source of normative text, but this document tries to make this venerable
+protocol more accessible, while maintaining full alignment with all relevant
+and useful RFCs.
+
+This effort is developed cooperatively on GitHub, the repository can be
+found at [https://github.com/ahupowerdns/hello-dns/] and text is highly
+welcomed!
 
 Although we start from relatively basic principles, the reader is expected
 to know what IP addresses are, what a (stub) resolver is and what an
@@ -14,21 +21,26 @@ servers and clients run 'stub resolvers' to look things up over at
 resolvers.  This document is aimed at developers, but may also be of aid for
 administrators.
 
-DNS was originally written down in August 1979 in 'IEN 116', a parallel
-series of documents describing the internet.  IEN 116-era DNS is not
+DNS was originally written down in August 1979 in '[IEN
+116](https://www.rfc-editor.org/ien/ien116.txt)', part of a parallel
+series of documents describing the Internet.  IEN 116-era DNS is not
 compatible with today's DNS.  In 1983, RFC 882 was released, and stunningly
 enough, an implementation of this 35 year old document would function
 on the internet and be interoperable. 
 
 DNS attained its modern form in 1987 when RFC 1034 and 1035 were published.
-Although most of 1034/1035 remains valid, these standards are not that easy
-to read because they were written in a very different time.
+Although much of 1034/1035 remains valid, these standards are not that easy
+to read because they were written in a very different time. There are 100s
+of pages of updates that can only be found in later document.
 
 The main goal of this document is not to contradict the DNS RFCs but to
 provide an easier entrypoint into understanding the Domain Name System.
 
 If you will, the goal is to be a mini "[TCP/IP
-Illustrated](https://en.wikipedia.org/wiki/TCP/IP_Illustrated)" of DNS.
+Illustrated](https://en.wikipedia.org/wiki/TCP/IP_Illustrated)" of DNS. For
+more about the philosophy of these documents, and how to contribute, please read
+[meta.md](meta.md).
+Your help & insights are highly welcome!
 
 I want to thank Ólafur Guðmundsson and Job Snijders for their input and
 enthusiasm for improving the state of DNS.
@@ -36,12 +48,11 @@ enthusiasm for improving the state of DNS.
 ## Layout
 The content is spread out over several documents:
 
- * The core of DNS
+ * The core of DNS (this file)
  * [Relevant to stub resolvers and applications](stub.md)
  * [Relevant to authoritative servers](auth.md)
  * [Relevant to resolvers](resolvers.md)
- * Optional elements: [EDNS, TSIG, Dynamic Updates, DNSSEC, DNAME, DNS
- Cookies](optional.md)
+ * Optional elements: [EDNS, TSIG, Dynamic Updates, DNSSEC, DNAME, DNS Cookies](optional.md)
 
 We start off with a general introduction of DNS basics: what is a resource
 record, what is an RRSET, what is a zone, what is a zone-cut, how are packets
@@ -56,16 +67,21 @@ top of this, we describe in slightly less detail how a resolver could
 operate. Finally, there is a section on optional elements like EDNS, TSIG,
 Dynamic Upates and DNSSEC
 
+RFCs, especially earlier ones, tend to describe servers that perform both
+authoritative and resolver functions. This turns out to make both code and
+troubleshooting harder. Therefore, in these documents, the authoritative and
+caching functions are described separately.
+
 Note that this file, which describes DNS basics, absolutely must be read from
 beginning to end in order for the rest of the documents (or DNS) to make
 sense.
 
-## DNS Basics
+# DNS Basics
 In this section we will initially ignore optional extensions that were added
 to DNS later, specifically EDNS and DNSSEC.
 
 This file corresponds roughly to the fundamental parts of RFCs 1034, 1035,
-1982, 2181, 2308, 3596, 4343, 5452, 6604.
+2181, 2308, 3596, 4343, 5452, 6604.
 
 DNS is mostly used to serve IP addresses and mailserver details, but it can
 contain arbitrary data.  DNS is all about names.  Every name can have data
@@ -100,7 +116,8 @@ responses:
 Relevant for responses:
  * AA: This response has Authoritative Answers
  * RA: Recursive service was available
- * TC: Not all the required parts of the answer fit in the message
+ * TC: Not all the required parts of the response fit in the UDP message
+ * RCODE: Result code. 0 is ok, 2 is SERVFAIL, 3 is NXDOMAIN.
 
 DNS queries are mostly sent over UDP, and UDP packets can easily be spoofed. 
 To recognize the authentic response to a query it is important that the ID
@@ -117,24 +134,27 @@ DNS servers must listen on both UDP and TCP, port 53.
 The header of a question for the IPv6 address of www.ietf.org looks like
 this:
 
-```
-                                    1  1  1  1  1  1
-      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                      ID = random 16 bits      |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
-    |0 |      0    |0 | 0| 0|0 |   0    |     0     |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    QDCOUNT = 1                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    ANCOUNT = 0                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    NSCOUNT = 0                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    ARCOUNT = 0                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-```
+
+***************************************************************
+*                                    1  1  1  1  1  1
+*      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                      ID = random 16 bits      |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+*    |0 |      0    |0 | 0| 0|0 |   0    |     0     |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                    QDCOUNT = 1                |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                    ANCOUNT = 0                |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                    NSCOUNT = 0                |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                    ARCOUNT = 0                |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*
+***************************************************************
+
 
 Note that we did not spend time on field Z, this is because it is defined to
 be 0 at all times.  This packets does not request recursion.  QDCOUNT = 1
@@ -144,29 +164,29 @@ are all zero, indicating there as no answers in this question packet.
 
 Here is the actual question:
 
-```
-                                    1  1  1  1  1  1
-      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           3                         w         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           w                         w         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           4                         i         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           e                         t         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           f                         3         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           o                         r         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           g                         0         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           0                        28         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           0                         1         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-```
+********************************************************
+*                                    1  1  1  1  1  1  *
+*      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           3           |             w         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           w           |             w         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           4           |             i         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           e           |             t         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           f           |             3         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           o           |             r         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           g           |             0         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           0           |            28         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+*    |           0           |             1         | *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
+********************************************************
 
 This consists of the 'www.ietf.org' encoded in DNS wire format (for which
 see below), followed by a 16 bit type field.  For AAAA, which denotes the
@@ -200,43 +220,43 @@ Note that individual labels of a name may only be 63 octets long.
 Next up, a DNS response. Note that this again is a DNS message, and it looks
 a lot like the original DNS query. Here is the beginning of a response:
 
-```
-                                    1  1  1  1  1  1
-      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                 ID = same random 16 bits      |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
-    |1 |      0    | 1| 0| 0| 0|   0    |     0     |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    QDCOUNT = 1                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    ANCOUNT = 1                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    NSCOUNT = 0                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                    ARCOUNT = 0                |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           3                         w         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           w                         w         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           4                         i         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           e                         t         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           f                         3         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           o                         r         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           g                         0         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           0                        28 (0x1c)  |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           0                         1         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 
-```
+*****************************************************************
+*                                    1  1  1  1  1  1           *
+*      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5           *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |                 ID = same random 16 bits      |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |          *
+*    |1 |      0    | 1| 0| 0| 0|   0    |     0     |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |                    QDCOUNT = 1                |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |                    ANCOUNT = 1                |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |                    NSCOUNT = 0                |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |                    ARCOUNT = 0                |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           3           |             w         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           w           |             w         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           4           |             i         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           e           |             t         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           f           |             3         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           o           |             r         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           g           |             0         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           0           |            28 (= 0x1c)|          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*    |           0           |             1         |          *
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
+*****************************************************************
 
 Note that QR is now set to 1 to denote a response.  The 'AA' bit was set
 because this answer came from a from a server authoriative for this name.
@@ -253,39 +273,38 @@ response, as doing so opens a security hole.
 
 After the header and the original question we find the answer:
 
-```
-                                    1  1  1  1  1  1
-      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |           0xc0                   0x0c         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             00                     28         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             00                     01         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                     TTL = 3600                |
-    |                                               |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |                   RDLENGTH = 16               |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
-    |             24                     00         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             cb                     00         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             20                     48         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             00                     01         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             00                     00         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             00                     00         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             68                     14         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    |             00                     55         |
-    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-```
-
+*****************************************************************
+*                                    1  1  1  1  1  1
+*      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |           0xc0        |          0x0c         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             00        |            28         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             00        |            01         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                     TTL = 3600                |
+*    |                                               |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |                   RDLENGTH = 16               |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
+*    |             24        |            00         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             cb        |            00         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             20        |            48         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             00        |            01         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             00        |            00         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             00        |            00         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             68        |            14         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*    |             00        |            55         |
+*    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+*****************************************************************
 The first two bytes (0xc0 0c0c) look rather mysterious.  When DNS was
 created, 512 octets was considered the maximum size of a UDP datagram and
 thus the maximum size of a DNS message transported without using the (then
@@ -314,6 +333,12 @@ address, the actual answer payload length is 16 bytes (or 128 bits).
 
 This is then followed by the binary representation of the current IPv6
 address of www.ietf.org, 2400:cb00:2048:1::6814:55.
+
+If there had been further answers, these would follow this first one, and
+the ANCOUNT would have been higher than 1. If there had been data in the
+'authoritative' and 'additional' sections, that would follow here too, with
+the corresponding adjustments to 'NSCOUNT' and 'ARCOUNT' fields. More about
+these sections later.
 
 ## RRSETs
 In the example above, the question for the AAAA record of 'www.ietf.org' had
@@ -352,24 +377,23 @@ node called 'ietf'.  Finally to the 'ietf' node is attached a node called
 
 Or in graphical form:
 
-```
-             +-----+
-             |  .  |
-             +-----+
-                |
-             +-----+
-             | ORG |
-             +-----+
-                |
-             +------+
-             | IETF |
-             +------+
-                |
-             +-----+
-             | WWW |
-             +-----+
-```
-
+***************************
+*             +-----+
+*             |     |
+*             +--+--+
+*                |
+*             +--+--+
+*             | ORG |
+*             +--+--+
+*                |
+*             +--+---+
+*             | IETF |
+*             +--+---+
+*                |
+*             +--+--+
+*             | WWW |
+*             +-----+
+***************************
 
 The 'tree' of nodes as shown above is real and not just another way of
 visualizing a DNS name.  This for example means that if there is a name
@@ -530,13 +554,13 @@ Note that for various reasons the AA=0 answer from the parent zone may be
 different than the AA=1 answer, and resolvers must be aware of the
 difference.
 
-## Further aspects
+# Further aspects
 
 The description up to this point is correct, but far from functionally
 complete even for basic DNS. The following sections describe additional
 aspects of basic DNS:
 
-### CNAME
+## CNAME
 A CNAME provides the 'Canonical Name' for another DNS name. For example:
 
 ```
@@ -564,7 +588,7 @@ When a server encounters a CNAME with the name of a name it was looking for,
 it will 'follow' the chain to where it points. And please be aware that this
 can loop.
 
-### Wildcards
+## Wildcards
 Wildcards allow for the following:
 
 ```
@@ -586,7 +610,7 @@ Wildcards synthesize new answers. This means that, unless explicitly
 queried, no '*.ietf.org' record will be served. Instead, a 'www.ietf.org'
 record is created on the fly. 
 
-### Truncation
+## Truncation
 Without implementing the optional EDNS protocol extension, all UDP responses
 must fit in 512 bytes of payload. If on writing an answer a server finds
 itself exceding this limit, it must truncate the packet and set the TC bit
@@ -615,8 +639,61 @@ these cases the authoritative server sends a copy of the SOA record in the
 Authority section of the response. The TTL of that record tells us how long
 the knowledge of 'no such name' or 'no such data' can be cached.
 
-## That's it!
+# That's it!
 This is the core of DNS. There are quite some parts that have not been
 discussed, but based on the explanations above, it is possible to write a
 compliant authoritative server. 
 
+## Further reading
+
+### RFC 1034 / 1035
+
+These ([1034](https://tools.ietf.org/html/rfc1034) &
+[1035](https://tools.ietf.org/html/rfc1035)) describe the core of DNS in
+1987 language.  When reading, disregard mentions of IQUERY and experimental
+records.  They did not survive.  Also realize that in this world,
+authoritative and resolver service were described as a single function.  We
+now know this to be confusing.
+
+### RFC 2181: "Clarifications to the DNS Specification"
+From 1997, [2181](https://tools.ietf.org/html/rfc2181) performs a decade of
+cleanup work on 1034/1035.  It also talks about an early version of DNSSEC
+(NXT, SIG, KEY records), these sections should not be read as this is
+unrelated to current DNSSEC (aka DNSSEC-bis).
+
+Of specific note, 5.4.1 describes very exact ordering rules which data a
+server is supposed to prefer. This list becomes a lot simpler when split up
+between pure authoritative and pure resolver functions.
+
+### RFC 2308: "Negative caching of DNS Queries (NCACHE)
+This [rfc](https://tools.ietf.org/html/rfc2308) describes how negative
+responses are to be cached. The details matter for both authoritative and
+resolvers. Of specific note are the parts that dwell on CNAME chains which
+lead to a 'no data' or 'NXDOMAIN' situation.
+
+As with 2181, this RFC speaks about an earlier version of DNSSEC, and these
+parts should be fully ignored.
+
+### RFC 3596: "DNS Extensions to Support IP Version 6"
+This [rfc](https://tools.ietf.org/html/rfc3596) describes the AAAA record,
+which is core to DNS as it is required to look up addresses of nameservers.
+
+### RFC 4343: "Domain Name System Case Insensitivity Clarification"
+[4343](https://tools.ietf.org/html/rfc4343) clarifies the somewhat odd
+case insensitivity of DNS but also writes out the escaping rules when using
+non-ASCII or whitespace in DNS names. As noted before, try not to have to
+use these rules except when reading DNS data from text files or showing DNS
+data meant for human consumption. Use native DNS names as much as possible,
+and create 4343-compliant comparison and equivalence functions.
+
+### RFC 5452: "Measures for Making DNS More Resilient against Forged Answers"
+This [RFC](https://tools.ietf.org/html/rfc5452) makes source port
+randomization mandatory for UDP-based DNS messages and also has rules on
+preventing "birthday attacks".
+
+### RFC 6604: "xNAME RCODE Clarification"
+[6604](https://tools.ietf.org/html/rfc6604) further describes the meanings
+of header bits (AA) and RCODEs when following CNAME chains. Also discusses
+an earlier version of DNAMEs, these parts are best ignored in lieu of
+(later) reading the newer DNAME specification.
+<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
