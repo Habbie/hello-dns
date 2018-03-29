@@ -205,7 +205,7 @@ trailing 0 which denotes this is the end.
 This format is unusual, but has several highly attractive properties. For
 example, it is binary safe and it needs no escaping. When writing DNS
 software, it may be tempting to pass DNS names around as "ASCII". This then
-leads to escaping and unescaping code in lots of places. It is highly
+leads to escaping an unescaping code in lots of places. It is highly
 recommended to use the native DNS encoding to store DNS names. This will
 save a lot of pain when processing DNS names with spaces or dots in them.
 
@@ -500,7 +500,7 @@ of the zone, at which point there is also a SOA record. So a typical zone
 will start like this:
 
 ```
-$ORIGIN ietf.org
+$ORIGIN ietf.org.
 @	IN	SOA	ns1  admin 2018032802 1800 900 604800 86400
 	IN	NS	ns1
 	IN	NS	ns2
@@ -519,7 +519,7 @@ Note however that above we learned that the parent zone, 'org' also needs to
 list the nameservers for example.org, and it does:
 
 ```
-$ORIGIN org
+$ORIGIN org.
 ...
 ietf	IN	NS	ns1.ietf
 ietf	IN	NS	ns2.ietf
@@ -538,7 +538,7 @@ To solve this problem, the parent zone can provide a free chicken. In the
 org zone, we would actually find:
 
 ```
-$ORIGIN org
+$ORIGIN org.
 ...
 ietf	IN	NS	ns1.ietf
 ietf	IN	NS	ns2.ietf
@@ -574,7 +574,7 @@ www.ietf.org is sent to cloudflare. This simultaneously means that what
 everyone wants is impossible:
 
 ```
-$origin ietf.org
+$ORIGIN ietf.org
 @	IN	CNAME this.does.not.work.int.
 ```
 
@@ -593,7 +593,7 @@ can loop.
 Wildcards allow for the following:
 
 ```
-$origin ietf.org
+$ORIGIN ietf.org.
 *	IN	A	192.0.2.1
 	IN	AAAA	2001:db8:85a3::8a2e:0370:7334
 smtp	IN	A	192.0.2.222
