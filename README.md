@@ -555,6 +555,7 @@ Note that for various reasons the AA=0 answer from the parent zone may be
 different than the AA=1 answer, and resolvers must be aware of the
 difference.
 
+
 # Further aspects
 
 The description up to this point is correct, but far from functionally
@@ -625,7 +626,7 @@ this could be done to stay under the 512 byte limit.
 It is recommended however to keep it simple and send an empty response
 packet with TC=1 whenever the byte limit is reached.
 
-### Names and nodes that do not exist
+## Names and nodes that do not exist
 DNS queries can fail to match in two ways: the whole node does not exist,
 or, the requested type is not present at that node.
 
@@ -640,7 +641,25 @@ these cases the authoritative server sends a copy of the SOA record in the
 Authority section of the response. The TTL of that record tells us how long
 the knowledge of 'no such name' or 'no such data' can be cached.
 
-# That's it!
+## Query types that are not RRSET types
+In addition to the resource record types covered above, like A, AAAA, NS and
+SOA, two additional types exist that can only be used in queries: ANY, AXFR
+and IXFR.
+
+An ANY query instructs a nameserver to return all types it immediately has
+available for a name. This 'immediately' qualification makes ANY queries
+unsuitable for talking to resolvers - it is not sure the response is in any
+way complete. 
+
+Because of the potential of creating huge answers, the use of ANY is
+problematic even when talking to authoritative servers, and it may no longer
+work well in the future.
+
+AXFR and IXFR are requests for (incremental) zone transfers, almost always
+over TCP. This query asks an authoritative server to list an entire zone.
+Resolvers do not process AXFR or IXFR queries.
+
+# That's it for basic DNS!
 This is the core of DNS. There are quite some parts that have not been
 discussed, but based on the explanations above, it is possible to write a
 compliant authoritative server. 
@@ -697,4 +716,5 @@ preventing "birthday attacks".
 of header bits (AA) and RCODEs when following CNAME chains. Also discusses
 an earlier version of DNAMEs, these parts are best ignored in lieu of
 (later) reading the newer DNAME specification.
+
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
