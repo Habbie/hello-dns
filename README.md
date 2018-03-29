@@ -433,32 +433,12 @@ is the one for the root zone (called '.').  As of 2018, it looks like this:
 .   86400   IN   SOA   a.root-servers.net. nstld.verisign-grs.com. 2018032802 1800 900 604800 86400
 ```
 
-This says: the authoritative server for the root zone is called
-'a.root-servers.net'. This name is however only used for diagnostics.
-Secondly, nstld@verisign-grs.com is the email address of the zone
-maintainer. Note that the '@' is replaced by a dot. Specifically, if the
-email address had been 'nstld.maintainer@verisign-grs.com', this would have
-been stored as nstld\\.maintainer.verisign-grs.com. This name would then
-still be 3 labels long, but the first one has a dot in it.
-
-The following field, 2018032802, is a serial number.  Quite often, but by
-all means not always, this is a date in proper order (YYYYMMDD), followed by
-two digits indicating updates over the day.  This serial number is used for
-replication purposes, as are the following 3 numbers.
-
-Zones are hosted on 'masters'. Meanwhile, 'slave' servers poll the master
-for updates, and pull down a new zone if they see new contents, as noted by
-an increase in serial number.
-
-The numbers 1800 and 900 describe how often a zone should be checked for
-updates (twice an hour), and that if an update check fails it should be
-repeated after 900 seconds.  Finally, 604800 says that if a master server
-was unreachable for over a week, the zone should be deleted from the slave.
-This is not a popular feature.
-
-The final number, 86400, denotes that if a response says a name or RRSET
-does not exist, it will continue to not exist for the next day, and that
-this knowledge may be cached.
+For details of what all these fields mean, please see the [authoritative
+server document](auth.md).
+ 
+The final number however is important here.  86400 denotes that if a
+response says a name or RRSET does not exist, it will continue to not exist
+for the next day, and that this knowledge may be cached.
 
 ### Zone cuts
 As noted, 'www.ietf.org' can live in four places. If it lives where it
@@ -550,15 +530,11 @@ Note that for various reasons the AA=0 answer from the parent zone may be
 different than the AA=1 answer, and resolvers must be aware of the
 difference.
 
-## Further complexity
+## Further aspects
 
-DNS contains two ways of making the life of an administrator easier in
-theory and frequently harder in practice: CNAMEs and wildcards. 
-
-Secondly, original DNS as noted requires sub-512 byte responses.
-
-Finally, DNS has a complicated way of signalling that a name or RRSET does
-not exist.
+The description up to this point is correct, but far from functionally
+complete even for basic DNS. The following sections describe additional
+aspects of basic DNS:
 
 ### CNAME
 A CNAME provides the 'Canonical Name' for another DNS name. For example:
@@ -584,6 +560,10 @@ really doesn't.
 In hindsight, the CNAME should have been 'typed' to apply only to specific
 query types. 
 
+When a server encounters a CNAME with the name of a name it was looking for,
+it will 'follow' the chain to where it points. And please be aware that this
+can loop.
+
 ### Wildcards
 Wildcards allow for the following:
 
@@ -601,6 +581,10 @@ Interestingly, as another example of how DNS really is a tree, a query for
 the AAAA record of smtp.ietf.org will return..  nothing.  This is because
 the node 'smtp.ietf.org' does exist, and processing ends there.  The
 wildcard match will not proceed to the '*' entry.
+
+Wildcards synthesize new answers. This means that, unless explicitly
+queried, no '*.ietf.org' record will be served. Instead, a 'www.ietf.org'
+record is created on the fly. 
 
 ### Truncation
 Without implementing the optional EDNS protocol extension, all UDP responses
