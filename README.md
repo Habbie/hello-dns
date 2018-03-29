@@ -10,8 +10,8 @@ protocol more accessible, while maintaining full alignment with all relevant
 and useful RFCs.
 
 This effort is developed cooperatively on GitHub, the repository can be
-found at [https://github.com/ahupowerdns/hello-dns/] and text is highly
-welcomed!
+found [https://github.com/ahupowerdns/hello-dns/](ghere) and help is highly
+welcome!
 
 Although we start from relatively basic principles, the reader is expected
 to know what IP addresses are, what a (stub) resolver is and what an
@@ -39,7 +39,7 @@ provide an easier entrypoint into understanding the Domain Name System.
 If you will, the goal is to be a mini "[TCP/IP
 Illustrated](https://en.wikipedia.org/wiki/TCP/IP_Illustrated)" of DNS. For
 more about the philosophy of these documents, and how to contribute, please read
-[meta.md](meta.md).
+[meta.md](meta.md.html).
 Your help & insights are highly welcome!
 
 I want to thank Ólafur Guðmundsson and Job Snijders for their input and
@@ -49,10 +49,11 @@ enthusiasm for improving the state of DNS.
 The content is spread out over several documents:
 
  * The core of DNS (this file)
- * [Relevant to stub resolvers and applications](stub.md)
- * [Relevant to authoritative servers](auth.md)
- * [Relevant to resolvers](resolvers.md)
- * Optional elements: [EDNS, TSIG, Dynamic Updates, DNSSEC, DNAME, DNS Cookies](optional.md)
+ * [Relevant to stub resolvers and applications](stub.md.html)
+ * [Relevant to authoritative servers](auth.md.html)
+ * [Relevant to resolvers](resolvers.md.html)
+ * Optional elements: [EDNS, TSIG, Dynamic Updates, DNAME, DNS Cookies](optional.md.html)
+ * [DNSSEC](dnssec.md.html)
 
 We start off with a general introduction of DNS basics: what is a resource
 record, what is an RRSET, what is a zone, what is a zone-cut, how are packets
@@ -458,7 +459,7 @@ is the one for the root zone (called '.').  As of 2018, it looks like this:
 ```
 
 For details of what all these fields mean, please see the [authoritative
-server document](auth.md).
+server document](auth.md.html).
  
 The final number however is important here.  86400 denotes that if a
 response says a name or RRSET does not exist, it will continue to not exist
