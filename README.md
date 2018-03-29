@@ -24,9 +24,9 @@ administrators.
 DNS was originally written down in August 1979 in '[IEN
 116](https://www.rfc-editor.org/ien/ien116.txt)', part of a parallel
 series of documents describing the Internet.  IEN 116-era DNS is not
-compatible with today's DNS.  In 1983, RFC 882 was released, and stunningly
-enough, an implementation of this 35 year old document would function
-on the internet and be interoperable. 
+compatible with today's DNS.  In 1983, RFC 882 and 883 were released,
+describing a version of the DNS very similar but not quite interoperable
+with the one we have today.
 
 DNS attained its modern form in 1987 when RFC 1034 and 1035 were published.
 Although much of 1034/1035 remains valid, these standards are not that easy
