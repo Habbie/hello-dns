@@ -1,5 +1,6 @@
                 <meta charset="utf-8" emacsmode="-*- markdown -*-">
                             **A warm welcome to DNS**
+<link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">
 
 # Hello, and welcome to DNS!
 
@@ -31,9 +32,9 @@ with the one we have today.
 DNS attained its modern form in 1987 when RFC 1034 and 1035 were published.
 Although much of 1034/1035 remains valid, these standards are not that easy
 to read because they were written in a very different time. There are 100s
-of pages of updates that can only be found in later document.
+of pages of updates that can only be found in later documents.
 
-The main goal of this document is not to contradict the DNS RFCs but to
+The main goal of this effort is not to contradict the DNS RFCs but to
 provide an easier entrypoint into understanding the Domain Name System.
 
 If you will, the goal is to be a mini "[TCP/IP
