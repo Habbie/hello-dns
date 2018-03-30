@@ -17,8 +17,17 @@ To top this off, a modern DNS resolver will have to validate DNSSEC
 correctly. This may be among the hardest challenges of any widely used
 Internet protocol.
 
+Excellent resolvers that are freely available and open source include:
+
+ * [BIND 9](https://www.isc.org/downloads/bind/)
+ * [Knot resolver](https://www.knot-resolver.cz/)
+ * [Unbound](https://www.unbound.net/)
+ * [PowerDNS Recursor](https://www.powerdns.com/recursor.html)
+
 So in short, before attempting to write a DNS resolver, ponder if you really
-need to.
+need to. 
+
+# Resolver algorithm
 
 TBC..
 
