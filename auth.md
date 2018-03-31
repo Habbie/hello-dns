@@ -29,6 +29,25 @@ The process of traversing such a zone-cut is called a delegation. A
 delegation is signified by the presence of NS records outside of the zone
 apex (aka the name of the zone).
 
+
+*************************************************************************************************
+*                                            .---.                                              *
+*                               .---.       | SOA |                                             *
+*                        +-----+ org +<---->| NS  |                                             *
+*                       /       '-+-'        '---'                                              *
+*                      /          |                                                             *
+*       .----.      .-+-.       .-+-.        .----.                                             *
+*      |  NS  +<-->+ iesg+     | ietf+<---->|  NS  |                                            *
+*       '----'      '-+-'       '---'        '----'                                             *
+*                    / \                                                                        *
+*  .---.            /   \             .---.                                                     *
+* | A   |       .--+.    +---.       | A   |                                                    *
+* |AAAA +<---->+ ns1 |  | ns2 +<---->|AAAA |                                                    *  
+*  '---'        '-+-'    '---'        '---'                                                     *
+*                                                                                               *
+*************************************************************************************************
+
+
 # Sending answers
 Fundamentally, the following answers are possible (this omits CNAME and
 wildcard processing, more about which below).
