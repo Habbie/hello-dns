@@ -532,7 +532,7 @@ response with AA=0, indicating that the 'org' servers know they aren't
 
 ### Glue records
 The astute reader will have spotted a chicken and egg problem here.  If
-ns1.ietf.org is the nameserver for ietf.org..  where do we get the IP
+ns1.ietf.org is the nameserver for ietf.org., where do we get the IP
 address of ns1.ietf.org?
 
 To solve this problem, the parent zone can provide a free chicken. In the
