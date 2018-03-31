@@ -159,7 +159,7 @@ this:
 
 
 Note that we did not spend time on field Z, this is because it is defined to
-be 0 at all times.  This packets does not request recursion.  QDCOUNT = 1
+be 0 at all times.  This packet does not request recursion.  QDCOUNT = 1
 means there is 1 question.  In theory DNS supported several questions in one
 message, but this has not been implemented.  ANCOUNT, NSCOUNT and ARCOUNT
 are all zero, indicating there as no answers in this question packet.
@@ -190,7 +190,7 @@ Here is the actual question:
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
 ********************************************************
 
-This consists of the 'www.ietf.org' encoded in DNS wire format (for which
+This consists of the name 'www.ietf.org' encoded in DNS wire format (for which
 see below), followed by a 16 bit type field.  For AAAA, which denotes the
 IPv6 address, this is 28.  This is then followed by the 'class' of the
 question.  It was originally intended that DNS records would exist in
@@ -206,7 +206,7 @@ trailing 0 which denotes this is the end.
 This format is unusual, but has several highly attractive properties. For
 example, it is binary safe and it needs no escaping. When writing DNS
 software, it may be tempting to pass DNS names around as "ASCII". This then
-leads to escaping an unescaping code in lots of places. It is highly
+leads to escaping and unescaping code in lots of places. It is highly
 recommended to use the native DNS encoding to store DNS names. This will
 save a lot of pain when processing DNS names with spaces or dots in them.
 
@@ -532,7 +532,7 @@ response with AA=0, indicating that the 'org' servers know they aren't
 
 ### Glue records
 The astute reader will have spotted a chicken and egg problem here.  If
-ns1.ietf.org is the nameserver for ietf.org..  where do we get the IP
+ns1.ietf.org is the nameserver for ietf.org., where do we get the IP
 address of ns1.ietf.org?
 
 To solve this problem, the parent zone can provide a free chicken. In the
