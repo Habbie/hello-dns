@@ -206,7 +206,7 @@ trailing 0 which denotes this is the end.
 This format is unusual, but has several highly attractive properties. For
 example, it is binary safe and it needs no escaping. When writing DNS
 software, it may be tempting to pass DNS names around as "ASCII". This then
-leads to escaping an unescaping code in lots of places. It is highly
+leads to escaping and unescaping code in lots of places. It is highly
 recommended to use the native DNS encoding to store DNS names. This will
 save a lot of pain when processing DNS names with spaces or dots in them.
 
