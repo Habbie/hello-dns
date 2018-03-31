@@ -190,7 +190,7 @@ Here is the actual question:
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
 ********************************************************
 
-This consists of the 'www.ietf.org' encoded in DNS wire format (for which
+This consists of the name 'www.ietf.org' encoded in DNS wire format (for which
 see below), followed by a 16 bit type field.  For AAAA, which denotes the
 IPv6 address, this is 28.  This is then followed by the 'class' of the
 question.  It was originally intended that DNS records would exist in
