@@ -1,0 +1,3 @@
+[submodule "tdns/ext/simplesocket"]
+	path = tdns/ext/simplesocket
+	url = https://github.com/ahupowerdns/simplesocket.git

@@ -1,6 +1,9 @@
                 <meta charset="utf-8" emacsmode="-*- markdown -*-">
                             **A warm welcome to DNS**
 
+Note: this page is part of the
+'[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
+
 # Resolver
 Writing a modern resolver is the hardest part of DNS. A fully standards
 compliant DNS resolver is not a resolver that can be used in practice.

@@ -1,5 +1,7 @@
                 <meta charset="utf-8" emacsmode="-*- markdown -*-">
                             **A warm welcome to DNS**
+Note: this page is part of the
+'[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
 # The why and what of these documents
 There are now between 1500 and 3000 pages of RFC documents describing DNS,
@@ -52,3 +54,4 @@ urge to write 'standardese'  here.
 
 
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="ext/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
+
