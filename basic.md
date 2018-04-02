@@ -94,7 +94,7 @@ Note that we did not spend time on field Z, this is because it is defined to
 be 0 at all times.  This packets does not request recursion.  QDCOUNT = 1
 means there is 1 question.  In theory DNS supported several questions in one
 message, but this has not been implemented.  ANCOUNT, NSCOUNT and ARCOUNT
-are all zero, indicating there as no answers in this question packet.
+are all zero, indicating there are no answers in this question packet.
 
 Here is the actual question:
 
