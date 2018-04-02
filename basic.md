@@ -10,11 +10,11 @@ In this section we will initially ignore optional extensions that were added
 to DNS later, specifically EDNS and DNSSEC.
 
 This file corresponds roughly to the fundamental parts of RFCs 1034, 1035,
-2181, 2308, 3596, 4343, 5452, 6604 and 7766.
+2181, 2308, 3596, 4343, 5452, 6604, 7766 and 8020.
 
-This file, which describes DNS basics, absolutely must be read from
+**This file, which describes DNS basics, absolutely must be read from
 beginning to end in order for the rest of the documents (or DNS) to make
-sense.
+sense.**
 
 DNS is mostly used to serve IP addresses and mailserver details, but it can
 contain arbitrary data.  DNS is all about names.  Every name can have data
@@ -36,8 +36,8 @@ A DNS message has:
  * An authority section
  * An additional section
 
-In basic DNS, query messages should have no answer, authority or additional
-sections. 
+In basic DNS, query messages should have empty answer, authority or
+additional sections.
 
 The header has the following fields that are useful for queries and
 responses:
@@ -56,8 +56,8 @@ Relevant for responses:
 DNS queries are mostly sent over UDP, and UDP packets can easily be spoofed. 
 To recognize the authentic response to a query it is important that the ID
 field is random or at least unpredictable.  This is however not enough
-protection, so the source port of a UDP DNS query must also be
-unpredictable.
+protection, so the source port of a UDP DNS query [must also be
+unpredictable](https://tools.ietf.org/html/rfc5452#section-9).
 
 DNS messages can also be sent over TCP/IP. Because TCP is not a datagram
 oriented protocol, each DNS message in TCP/IP is preceded by a 16 bit
@@ -112,7 +112,7 @@ Here is the actual question:
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
 *    |           f           |             3         | *
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
-*    |           o           |             r         | *
+*    |           о           |             r         | *
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
 *    |           g           |             0         | *
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ *
@@ -185,7 +185,7 @@ a lot like the original DNS query. Here is the beginning of a response:
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
 *    |           f           |             3         |          *
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
-*    |           o           |             r         |          *
+*    |           о           |             r         |          *
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
 *    |           g           |             0         |          *
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+          *
@@ -242,7 +242,7 @@ After the header and the original question we find the answer:
 *    |             00        |            55         |
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 *****************************************************************
-The first two bytes (0xc0 0c0c) look rather mysterious.  When DNS was
+The first two bytes (`0xc0 0x0c`) look rather mysterious.  When DNS was
 created, 512 octets was considered the maximum size of a UDP datagram and
 thus the maximum size of a DNS message transported without using the (then
 slow) TCP protocol.
@@ -254,14 +254,14 @@ overflows.  So tread very carefully. If you remember one thing, make sure
 that a pointer always has to go to a lower position in the packet. Also
 beware of signed/unsigned arithmetic. 
 
-In this case, the DNS name of the answer is encoded is '0xc0 0x0c'.  The c0
+In this case, the DNS name of the answer is encoded is `0xc0 0x0c`.  The c0
 part has the two most significant bits set, indicating that the following
 6+8 bits are a pointer to somewhere earlier in the message.  In this case,
-this points to position 12 (= 0x0c) within the packet, which is immediately
+this points to position 12 (= `0x0c`) within the packet, which is immediately
 after the DNS header.  There we find 'www.ietf.org'.
 
-So what this means is that the answer about the DNS name 'www.ietf.org' is
-also called 'www.ietf.org'. 
+So what this means is that the answer about the DNS name `www.ietf.org` is
+also called `www.ietf.org`. 
 
 This is then followed in the packet by '28', which denotes AAAA (IPv6), and
 the usual 'class' of 1. Then a whole 32 bits are devoted to the Time To Live
@@ -294,15 +294,16 @@ should never happen.
 
 ## Zone files
 Zone files are one way of storing DNS data, but these are not integral to
-the operation of a nameserver.  The zone file format is standardized, but it
+the operation of a nameserver.  The zone file format is standardized
+([section 5 of RFC 1035](https://tools.ietf.org/html/rfc1035)), but it
 is highly non-trivial to parse.  It is entirely possible to write useful
 nameserver that does not read or write DNS zone files.  When embarking on
 parsing zonefiles, do not do so lightly.  As an example, various fields
 within a single line can appear in many orders.  Most fields are optional,
 and some will then be copied from the previous line.  But not all.
 
-Of specific note, many people have attempted to write a grammar (parser) for
-zonefiles and it is almost impossible. 
+Of specific note, many people have attempted to write a grammar (say, in
+Yacc) for zonefiles and it is almost impossible.
 
 ## DNS Names
 The concept of a DNS name is non-trivial and frequently misunderstood. 
@@ -334,12 +335,39 @@ Or in graphical form:
 
 The 'tree' of nodes as shown above is real and not just another way of
 visualizing a DNS name.  This for example means that if there is a name
-called 'www.fr.ietf.org' and a query comes in for 'fr.ietf.org', that name
-exists - even though no records may be assigned to it. 
+called 'ns1.ord.ietf.org' and a query comes in for 'ns2.fra.ietf.org', that
+name exists - even though no records may be assigned to it.
+
+The 'org' zone for example might look like this:
+
+*************************************************************************************************
+*                                                                                               *
+*                                   .---.                                                       *
+*                        +---------+ org +--------+                                             *
+*                       /           '-+-'          \                                            *
+*                      /              |             \                                           *
+*                   .-+-.           .-+-.          .-+-.                                        *
+*                  + ietf+         | ietg+        | ... +                                       *
+*                   '-+-'           '-+-'          '---'                                        *
+*                    / \              |                                                         *
+*                   /   \             |                                                         *
+*               .--+.    +---.      .-+-.                                                       *
+*              + ord |  | fra +    | ... +                                                      *  
+*               '-+-'    '-+-'      '---'                                                       *
+*                 |        |                                                                    *
+*               .-+-.    .-+-.                                                                  *                   
+*              + ns1 |  | ns2 +                                                                 *                   
+*               '-+-'    '---'                                                                  *                   
+*                                                                                               *
+*************************************************************************************************
+
 
 NOTE: This means that any implementation that sees DNS as a simple
-'key/value' store, where only records that exist can match, is headed for
-trouble down the line. 
+'key/value' store, where only records that exist can match is headed for
+trouble down the line.  The [DNS
+standard](https://tools.ietf.org/html/rfc8020)  allows implementations to assume
+that if 'ord.ietf.org' does not exist, neither does ns1. This saves queries
+but will kill your domain names if you get this wrong.
 
 ## Zones
 As noted, DNS is more complicated than a simple key/value store.  This is
@@ -658,5 +686,10 @@ an earlier version of DNAMEs, these parts are best ignored in lieu of
 state that TCP is a mandatory part of DNS and a first class citizen It also
 updates timeout rules, recommending rather brief timeouts compared to the
 'minutes' noted in the original DNS standard.
+
+### RFC 8020: NXDOMAIN: There really is nothing underneath
+[8020](https://tools.ietf.org/html/rfc8020) clarifies 1034 and 2308 to state
+that if 'ord.ietf.org' does not exist, resolvers can safely assume that
+neither will 'ns1.ord.ietf.org' - without doing any further queries.
 
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="ext/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
