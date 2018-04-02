@@ -11,7 +11,8 @@ and useful RFCs.
 
 This effort is developed cooperatively on GitHub, the repository can be
 found [https://github.com/ahupowerdns/hello-dns/](here) and help is highly
-welcome!
+welcome!  Feedback can also be sent to bert.hubert@powerdns.com or
+[@PowerDNS_Bert](https://twitter.com/PowerDNS_Bert).
 
 Although we start from relatively basic principles, the reader is expected
 to know what IP addresses are, what a (stub) resolver is and what an
