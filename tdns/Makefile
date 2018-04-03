@@ -1,4 +1,4 @@
-CXXFLAGS:=-std=gnu++14 -Wall -O2 -MMD -MP -ggdb -Iext/simplesocket
+CXXFLAGS:=-std=gnu++14 -Wall -O2 -MMD -MP -ggdb -Iext/simplesocket -pthread
 
 PROGRAMS = tdns
 
@@ -13,4 +13,4 @@ clean:
 -include *.d
 
 tdns: tdns.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
-	g++ -std=gnu++14 $^ -o $@ 
+	g++ -std=gnu++14 $^ -o $@ -pthread
