@@ -19,7 +19,7 @@ typedef std::string dnslabel;
 
 enum class RCode 
 {
-  Noerror = 0, Servfail =2, Nxdomain =3, Notimp = 4, Refused = 5
+  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5
 };
 
 enum class DNSType : uint16_t
@@ -48,11 +48,20 @@ struct RRSet
   uint32_t ttl{3600};
 };
 
+struct CIStringCompare: public std::binary_function<string, string, bool>
+{
+  bool operator()(const string& a, const string& b) const
+  {
+    return strcasecmp(a.c_str(), b.c_str()) < 0; // XXX locale pain, plus embedded zeros
+  }
+};
+
+
 struct DNSNode
 {
   const DNSNode* find(dnsname& name, dnsname& last, bool* passedZonecut=0) const;
   DNSNode* add(dnsname name);
-  map<dnslabel, DNSNode> children;
+  map<dnslabel, DNSNode, CIStringCompare> children;
   map<DNSType, RRSet > rrsets;
   
   DNSNode* zone{0}; // if this is set, this node is a zone
@@ -248,15 +257,122 @@ dnsname operator+(const dnsname& a, const dnsname& b)
   return ret;
 }
 
-void udpThread(ComboAddress local, const DNSNode* zones)
+bool processQuestion(const DNSNode& zones, DNSMessage& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessage& response)
+try
 {
-  Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
-  SBind(udplistener, local);
+  dnsname name;
+  DNSType type;
+  dm.getQuestion(name, type);
+  cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<(int)type<<endl;
+  
+  response.dh = dm.dh;
+  response.dh.ad = 0;
+  response.dh.ra = 0;
+  response.dh.aa = 0;
+  response.dh.qr = 1;
+  response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
+  response.setQuestion(name, type);
+  
+  if(type == DNSType::AXFR) {
+      cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
+      response.dh.rcode = (int)RCode::Servfail;
+      return true;
+  }
 
+  if(dm.dh.opcode != 0) {
+    cout<<"Query had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
+    response.dh.rcode = (int)RCode::Notimp;
+    return true;
+  }
+    
+  dnsname zone;
+  auto fnd = zones.find(name, zone);
+  if(fnd && fnd->zone) {
+    cout<<"---\nBest zone: "<<zone<<", name now "<<name<<", loaded: "<<(void*)fnd->zone<<endl;
+
+    response.dh.aa = 1; 
+    
+    auto bestzone = fnd->zone;
+    dnsname searchname(name), lastnode;
+    bool passedZonecut=false;
+    auto node = bestzone->find(searchname, lastnode, &passedZonecut);
+    if(passedZonecut)
+      response.dh.aa = false;
+    
+    if(!node) {
+      cout<<"Found nothing in zone '"<<zone<<"' for lhs '"<<name<<"'"<<endl;
+    }
+    else if(!searchname.empty()) {
+      cout<<"This was a partial match, searchname now "<<searchname<<endl;
+      
+      for(const auto& rr: node->rrsets) {
+        cout<<"  Have type "<<(int)rr.first<<endl;
+      }
+      auto iter = node->rrsets.find(DNSType::NS);
+      if(iter != node->rrsets.end() && passedZonecut) {
+        cout<<"Have delegation"<<endl;
+        const auto& rrset = iter->second;
+        for(const auto& rr : rrset.contents) {
+          response.putRR(DNSSection::Answer, lastnode+zone, DNSType::NS, rrset.ttl, rr);
+        }
+        // should do additional processing here
+      }
+      else {
+        cout<<"This is an NXDOMAIN situation"<<endl;
+        const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
+        response.dh.rcode = (int)RCode::Nxdomain;
+        response.putRR(DNSSection::Authority, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+      }
+    }
+    else {
+      cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
+      
+      auto iter = node->rrsets.cbegin();
+      if(type == DNSType::ANY) {
+        for(const auto& t : node->rrsets) {
+          const auto& rrset = t.second;
+          for(const auto& rr : rrset.contents) {
+            response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
+          }
+        }
+      }
+      else if(iter = node->rrsets.find(type), iter != node->rrsets.end()) {
+        const auto& rrset = iter->second;
+        for(const auto& rr : rrset.contents) {
+          response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
+        }
+      }
+      else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
+        cout<<"We do have a CNAME!"<<endl;
+        const auto& rrset = iter->second;
+        for(const auto& rr : rrset.contents) {
+          response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
+        }
+        cout<<" We should actually follow this, at least within our zone"<<endl;
+      }
+      else {
+        cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
+        const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
+        response.putRR(DNSSection::Answer, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+      }
+    }
+  }
+  else {
+    response.dh.rcode = (uint8_t)RCode::Refused;
+  }
+  return true;
+}
+catch(std::exception& e) {
+  cout<<"Error processing query: "<<e.what()<<endl;
+  return false;
+}
+
+void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
+{
   for(;;) {
     ComboAddress remote(local);
     DNSMessage dm;
-    string message = SRecvfrom(udplistener, sizeof(dm), remote);
+    string message = SRecvfrom(*sock, sizeof(dm), remote);
     if(message.size() < sizeof(dnsheader)) {
       cerr<<"Dropping query from "<<remote.toStringWithPort()<<", too short"<<endl;
       continue;
@@ -268,115 +384,75 @@ void udpThread(ComboAddress local, const DNSNode* zones)
       continue;
     }
 
+    DNSMessage response;
+    if(processQuestion(*zones, dm, local, remote, response)) {
+      SSendto(*sock, response.serialize(), remote);
+    }
+  }
+}
+
+void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNode* zones)
+{
+  Socket sock(s);
+  cout<<"TCP Connection from "<<remote.toStringWithPort()<<endl;
+  for(;;) {
+
+    uint16_t len;
+    
+    string message = SRead(sock, 2);
+    if(message.size() != 2)
+      break;
+    memcpy(&len, &message.at(1)-1, 2);
+    len=htons(len);
+    
+    if(len > 512) {
+      cerr<<"Remote "<<remote.toStringWithPort()<<" sent question that was too big"<<endl;
+      return;
+    }
+    
+    if(len < sizeof(dnsheader)) {
+      cerr<<"Dropping query from "<<remote.toStringWithPort()<<", too short"<<endl;
+      return;
+    }
+
+    cout<<"Reading "<<len<<" bytes"<<endl;
+    
+    message = SRead(sock, len);
+    DNSMessage dm;
+    memcpy(&dm, message.c_str(), message.size());
+
+    if(dm.dh.qr) {
+      cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
+      return;
+    }
+
     dnsname name;
     DNSType type;
     dm.getQuestion(name, type);
-    cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<(int)type<<endl;
-
-    
-    DNSMessage response;
-    response.dh = dm.dh;
-    response.dh.ad = 0;
-    response.dh.ra = 0;
-    response.dh.aa = 0;
-    response.dh.qr = 1;
-    response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
-    response.setQuestion(name, type);
-
 
     if(type == DNSType::AXFR) {
-      cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
-      response.dh.rcode = (int)RCode::Servfail;
-      SSendto(udplistener, response.serialize(), remote);
-      continue;
-    }
-
-    if(dm.dh.opcode != 0) {
-      cout<<"Query had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
-      response.dh.rcode = (int)RCode::Notimp;
-      SSendto(udplistener, response.serialize(), remote);
-      continue;
-    }
-    
-    dnsname zone;
-    auto fnd = zones->find(name, zone);
-    if(fnd && fnd->zone) {
-      cout<<"---\nBest zone: "<<zone<<", name now "<<name<<", loaded: "<<(void*)fnd->zone<<endl;
-
-      response.dh.aa = 1; 
-            
-      auto bestzone = fnd->zone;
-      dnsname searchname(name), lastnode;
-      bool passedZonecut=false;
-      auto node = bestzone->find(searchname, lastnode, &passedZonecut);
-      if(passedZonecut)
-        response.dh.aa = false;
-
-      if(!node) {
-        cout<<"Found nothing in zone '"<<zone<<"' for lhs '"<<name<<"'"<<endl;
-      }
-      else if(!searchname.empty()) {
-        cout<<"This was a partial match, searchname now "<<searchname<<endl;
-        
-        for(const auto& rr: node->rrsets) {
-          cout<<"  Have type "<<(int)rr.first<<endl;
-        }
-        auto iter = node->rrsets.find(DNSType::NS);
-        if(iter != node->rrsets.end() && passedZonecut) {
-          cout<<"Have delegation"<<endl;
-          const auto& rrset = iter->second;
-          for(const auto& rr : rrset.contents) {
-            response.putRR(DNSSection::Answer, lastnode+zone, DNSType::NS, rrset.ttl, rr);
-          }
-          // should do additional processing here
-        }
-        else {
-          cout<<"This is an NXDOMAIN situation"<<endl;
-          const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
-          response.dh.rcode = (int)RCode::Nxdomain;
-          response.putRR(DNSSection::Authority, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
-        }
-      }
-      else {
-        cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
-
-        auto iter = node->rrsets.cbegin();
-        if(type == DNSType::ANY) {
-          for(const auto& t : node->rrsets) {
-            const auto& rrset = t.second;
-            for(const auto& rr : rrset.contents) {
-              response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
-            }
-          }
-        }
-        else if(iter = node->rrsets.find(type), iter != node->rrsets.end()) {
-          const auto& rrset = iter->second;
-          for(const auto& rr : rrset.contents) {
-            response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
-          }
-        }
-        else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
-          cout<<"We do have a CNAME!"<<endl;
-          const auto& rrset = iter->second;
-          for(const auto& rr : rrset.contents) {
-            response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
-          }
-          cout<<" We should actually follow this, at least within our zone"<<endl;
-        }
-        else {
-          cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
-          const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
-          response.putRR(DNSSection::Answer, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
-        }
-      }
+      cout<<"Should do AXFR for "<<name<<endl;
+      return;
     }
     else {
-      response.dh.rcode = (uint8_t)RCode::Refused;
+      dm.payload.rewind();
+      DNSMessage response;
+      
+      if(processQuestion(*zones, dm, local, remote, response)) {
+        string ser="00"+response.serialize();
+        cout<<"Should send a message of "<<ser.size()<<" bytes in response"<<endl;
+        len = htons(ser.length()-2);
+        ser[0] = *((char*)&len);
+        ser[1] = *(((char*)&len) + 1);
+        SWriten(sock, ser);
+        cout<<"Sent!"<<endl;
+      }
+      else
+        return;
     }
-    SSendto(udplistener, response.serialize(), remote);
   }
-
 }
+
 
 void loadZones(DNSNode& zones)
 {
@@ -402,14 +478,27 @@ int main(int argc, char** argv)
 {
   ComboAddress local(argv[1], 53);
 
+  Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
+  SBind(udplistener, local);
+
+  Socket tcplistener(local.sin4.sin_family, SOCK_STREAM);
+  SSetsockopt(tcplistener, SOL_SOCKET, SO_REUSEPORT, 1);
+  SBind(tcplistener, local);
+  SListen(tcplistener, 10);
+  
   DNSNode zones;
 
   loadZones(zones);
   
-  thread udpServer(udpThread, local, &zones);
-  //  thread tcpServer(tcpThread, local, &zones);
-
-  udpServer.join();
-  //  tcpServer.join();
+  thread udpServer(udpThread, local, &udplistener, &zones);
   
+
+
+  for(;;) {
+    ComboAddress remote;
+    int client = SAccept(tcplistener, remote);
+    thread t(tcpClientThread, local, remote, client, &zones);
+    t.detach();
+  }
+  udpServer.join();
 }

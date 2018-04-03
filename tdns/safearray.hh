@@ -8,6 +8,11 @@ struct SafeArray
   std::array<uint8_t, N> payload;
   uint16_t payloadpos{0}, payloadsize{0};
 
+  void rewind()
+  {
+    payloadpos = 0;
+  }
+  
   uint8_t getUInt8()
   {
     return payload.at(payloadpos++);
