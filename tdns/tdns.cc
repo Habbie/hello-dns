@@ -12,115 +12,9 @@
 #include "dns.hh"
 #include "safearray.hh"
 #include <thread>
+#include "dns-storage.hh"
 
 using namespace std;
-
-typedef std::string dnslabel;
-
-enum class RCode 
-{
-  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5
-};
-
-enum class DNSType : uint16_t
-{
-  A = 1, NS = 2, CNAME = 5, SOA=6, AAAA = 28, IXFR = 251, AXFR = 252, ANY = 255
-};
-
-enum class DNSSection
-{
-  Question, Answer, Authority, Additional
-};
-
-typedef deque<dnslabel> dnsname;
-// this should perform escaping rules!
-static std::ostream & operator<<(std::ostream &os, const dnsname& d)
-{
-  for(const auto& l : d) {
-    os<<l<<".";
-  }
-  return os;
-}
-
-struct RRSet
-{
-  vector<string> contents;
-  uint32_t ttl{3600};
-};
-
-struct CIStringCompare: public std::binary_function<string, string, bool>
-{
-  bool operator()(const string& a, const string& b) const
-  {
-    return strcasecmp(a.c_str(), b.c_str()) < 0; // XXX locale pain, plus embedded zeros
-  }
-};
-
-
-struct DNSNode
-{
-  const DNSNode* find(dnsname& name, dnsname& last, bool* passedZonecut=0) const;
-  DNSNode* add(dnsname name);
-  map<dnslabel, DNSNode, CIStringCompare> children;
-  map<DNSType, RRSet > rrsets;
-  
-  DNSNode* zone{0}; // if this is set, this node is a zone
-};
-
-const DNSNode* DNSNode::find(dnsname& name, dnsname& last, bool* passedZonecut) const
-{
-  cout<<"find for '"<<name<<"', last is now '"<<last<<"'"<<endl;
-  if(!last.empty() && passedZonecut && rrsets.count(DNSType::NS)) {
-    *passedZonecut=true;
-  }
-
-  if(name.empty()) {
-    cout<<"Empty lookup, returning this node or 0"<<endl;
-    if(!zone && rrsets.empty()) // only root zone can have this
-      return 0;
-    else
-      return this;
-  }
-  cout<<"Children at this node: ";
-  for(const auto& c: children) cout <<"'"<<c.first<<"' ";
-  cout<<endl;
-  auto iter = children.find(name.back());
-  cout<<"Looked for child called '"<<name.back()<<"'"<<endl;
-  if(iter == children.end()) {
-    cout<<"Found nothing, trying wildcard"<<endl;
-    iter = children.find("*");
-    if(iter == children.end()) {
-      cout<<"Still nothing, returning leaf"<<endl;
-      return this;
-    }
-    else {
-      cout<<"Had wildcard match, following"<<endl;
-    }
-  }
-  cout<<"Had match, continuing to child '"<<iter->first<<"'"<<endl;
-  last.push_front(name.back());
-  name.pop_back();
-  return iter->second.find(name, last, passedZonecut);
-}
-
-DNSNode* DNSNode::add(dnsname name) 
-{
-  cout<<"Add for '"<<name<<"'"<<endl;
-  if(name.size() == 1) {
-    cout<<"Last label, adding "<<name.front()<<endl;
-    return &children[name.front()];
-  }
-
-  auto back = name.back();
-  name.pop_back();
-  auto iter = children.find(back);
-
-  if(iter == children.end()) {
-    cout<<"Inserting new child for "<<back<<endl;
-    return children[back].add(name);
-  }
-  return iter->second.add(name);
-}
 
 struct DNSMessage
 {
@@ -133,7 +27,7 @@ struct DNSMessage
   void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::string& rr);
 
   string serialize() const;
-}; // __attribute__((packed));
+}; 
 
 dnsname DNSMessage::getName()
 {
@@ -169,12 +63,18 @@ void putName(auto& payload, const dnsname& name)
 
 void DNSMessage::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::string& content)
 {
-  putName(payload, name);
-  payload.putUInt16((int)type); payload.putUInt16(1);
-  payload.putUInt32(ttl);
-  payload.putUInt16(content.size()); // check for overflow!
-  payload.putBlob(content);
-
+  auto cursize = payload.payloadpos;
+  try {
+    putName(payload, name);
+    payload.putUInt16((int)type); payload.putUInt16(1);
+    payload.putUInt32(ttl);
+    payload.putUInt16(content.size()); // check for overflow!
+    payload.putBlob(content);
+  }
+  catch(...) {
+    payload.payloadpos = cursize;
+    throw;
+  }
   switch(section) {
     case DNSSection::Question:
       throw runtime_error("Can't add questions to a DNS Message with putRR");
@@ -202,7 +102,6 @@ string DNSMessage::serialize() const
   return string((const char*)this, (const char*)this + sizeof(dnsheader) + payload.payloadpos);
 }
 
-
 static_assert(sizeof(DNSMessage) == 516, "dnsmessage size must be 516");
 
 std::string serializeDNSName(const dnsname& dn)
@@ -215,6 +114,15 @@ std::string serializeDNSName(const dnsname& dn)
   ret.append(1, (char)0);
   return ret;
 }
+
+std::string serializeMXRecord(uint16_t prio, const dnsname& mname)
+{
+  SafeArray<256> sa;
+  sa.putUInt16(prio);
+  putName(sa, mname);
+  return sa.serialize();
+}
+
 
 std::string serializeSOARecord(const dnsname& mname, const dnsname& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800)
 {
@@ -249,13 +157,6 @@ std::string serializeAAAARecord(const std::string& src)
 }
 
 
-dnsname operator+(const dnsname& a, const dnsname& b)
-{
-  dnsname ret=a;
-  for(const auto& l : b)
-    ret.push_back(l);
-  return ret;
-}
 
 bool processQuestion(const DNSNode& zones, DNSMessage& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessage& response)
 try
@@ -263,7 +164,7 @@ try
   dnsname name;
   DNSType type;
   dm.getQuestion(name, type);
-  cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<(int)type<<endl;
+  cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<type<<endl;
   
   response.dh = dm.dh;
   response.dh.ad = 0;
@@ -274,9 +175,9 @@ try
   response.setQuestion(name, type);
   
   if(type == DNSType::AXFR) {
-      cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
-      response.dh.rcode = (int)RCode::Servfail;
-      return true;
+    cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
+    response.dh.rcode = (int)RCode::Servfail;
+    return true;
   }
 
   if(dm.dh.opcode != 0) {
@@ -306,7 +207,7 @@ try
       cout<<"This was a partial match, searchname now "<<searchname<<endl;
       
       for(const auto& rr: node->rrsets) {
-        cout<<"  Have type "<<(int)rr.first<<endl;
+        cout<<"  Have type "<<rr.first<<endl;
       }
       auto iter = node->rrsets.find(DNSType::NS);
       if(iter != node->rrsets.end() && passedZonecut) {
@@ -358,6 +259,7 @@ try
     }
   }
   else {
+    cout<<"No zone matched"<<endl;
     response.dh.rcode = (uint8_t)RCode::Refused;
   }
   return true;
@@ -386,9 +288,21 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
 
     DNSMessage response;
     if(processQuestion(*zones, dm, local, remote, response)) {
+      cout<<"Sending response with rcode "<<(RCode)response.dh.rcode <<endl;
       SSendto(*sock, response.serialize(), remote);
     }
   }
+}
+
+void writeTCPResponse(int sock, const DNSMessage& response)
+{
+  string ser="00"+response.serialize();
+  cout<<"Should send a message of "<<ser.size()<<" bytes in response"<<endl;
+  uint16_t len = htons(ser.length()-2);
+  ser[0] = *((char*)&len);
+  ser[1] = *(((char*)&len) + 1);
+  SWriten(sock, ser);
+  cout<<"Sent!"<<endl;
 }
 
 void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNode* zones)
@@ -396,7 +310,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
   Socket sock(s);
   cout<<"TCP Connection from "<<remote.toStringWithPort()<<endl;
   for(;;) {
-
     uint16_t len;
     
     string message = SRead(sock, 2);
@@ -429,23 +342,78 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     dnsname name;
     DNSType type;
     dm.getQuestion(name, type);
-
+    DNSMessage response;
+    
     if(type == DNSType::AXFR) {
       cout<<"Should do AXFR for "<<name<<endl;
+
+      dnsname zone;
+      auto fnd = zones->find(name, zone);
+      if(!fnd || !fnd->zone || !name.empty()) {
+        cout<<"   This was not a zone"<<endl;
+        return;
+      }
+      cout<<"Have zone, walking it"<<endl;
+      response.dh = dm.dh;
+      response.dh.ad = 0;
+      response.dh.ra = 0;
+      response.dh.aa = 0;
+      response.dh.qr = 1;
+      response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
+      response.setQuestion(zone, type);
+
+      auto node = fnd->zone;
+
+      // send SOA
+      response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
+
+      writeTCPResponse(sock, response);
+      response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
+      response.payload.rewind();
+      response.setQuestion(zone, type);
+
+      
+      // send all other records
+      node->visit([&response,&sock,&name,&type,&zone](const dnsname& nname, const DNSNode* n) {
+          cout<<nname<<", types: ";
+          for(const auto& p : n->rrsets) {
+            if(p.first == DNSType::SOA)
+              continue;
+            for(const auto& rr : p.second.contents) {
+            retry:
+              try {
+                response.putRR(DNSSection::Answer, nname, p.first, p.second.ttl, rr);
+              }
+              catch(...) {
+                writeTCPResponse(sock, response);
+                response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
+                response.payload.rewind();
+                response.setQuestion(zone, type);
+                goto retry;
+              }
+            }
+            cout<<p.first<<" ";
+          }
+          cout<<endl;
+        }, zone);
+
+      writeTCPResponse(sock, response);
+      response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
+      response.payload.rewind();
+      response.setQuestion(zone, type);
+
+      // send SOA again
+      response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
+
+      writeTCPResponse(sock, response);
+      
       return;
     }
     else {
       dm.payload.rewind();
-      DNSMessage response;
       
       if(processQuestion(*zones, dm, local, remote, response)) {
-        string ser="00"+response.serialize();
-        cout<<"Should send a message of "<<ser.size()<<" bytes in response"<<endl;
-        len = htons(ser.length()-2);
-        ser[0] = *((char*)&len);
-        ser[1] = *(((char*)&len) + 1);
-        SWriten(sock, ser);
-        cout<<"Sent!"<<endl;
+        writeTCPResponse(sock, response);
       }
       else
         return;
@@ -459,19 +427,23 @@ void loadZones(DNSNode& zones)
   auto zone = zones.add({"powerdns", "org"});
   zone->zone = new DNSNode(); // XXX ICK
   zone->zone->rrsets[DNSType::SOA]={{serializeSOARecord({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1)}};
+  zone->zone->rrsets[DNSType::MX]={{serializeMXRecord(25, {"server1", "powerdns", "org"})}};
+    
   zone->zone->rrsets[DNSType::A]={{serializeARecord("1.2.3.4")}, 300};
-  zone->zone->rrsets[DNSType::AAAA]={{serializeAAAARecord("::1"), serializeAAAARecord("2001::1")}, 900};
+  zone->zone->rrsets[DNSType::AAAA]={{serializeAAAARecord("::1"), serializeAAAARecord("2001::1"), serializeAAAARecord("2a02:a440:b085:1:beee:7bff:fe89:f0fb")}, 900};
   zone->zone->rrsets[DNSType::NS]={{serializeDNSName({"ns1", "powerdns", "org"})}, 300};
 
   zone->zone->add({"www"})->rrsets[DNSType::CNAME]={{serializeDNSName({"server1","powerdns","org"})}};
 
   zone->zone->add({"server1"})->rrsets[DNSType::A]={{serializeARecord("213.244.168.210")}};
+  zone->zone->add({"server1"})->rrsets[DNSType::AAAA]={{serializeAAAARecord("::1")}};
   
   //  zone->zone->add({"*"})->rrsets[(dnstype)DNSType::A]={"\x05\x06\x07\x08"};
 
   zone->zone->add({"fra"})->rrsets[DNSType::NS]={{serializeDNSName({"ns1","fra","powerdns","org"})}};
 
   zone->zone->add({"ns1", "fra"})->rrsets[DNSType::A]={{serializeARecord("12.13.14.15")}, 86400};
+  zone->zone->add({"NS2", "fra"})->rrsets[DNSType::A]={{serializeARecord("12.13.14.16")}, 86400};
 }
 
 int main(int argc, char** argv)
@@ -491,8 +463,6 @@ int main(int argc, char** argv)
   loadZones(zones);
   
   thread udpServer(udpThread, local, &udplistener, &zones);
-  
-
 
   for(;;) {
     ComboAddress remote;

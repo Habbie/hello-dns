@@ -12,5 +12,5 @@ clean:
 
 -include *.d
 
-tdns: tdns.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
+tdns: tdns.o dns-storage.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
 	g++ -std=gnu++14 $^ -o $@ -pthread
