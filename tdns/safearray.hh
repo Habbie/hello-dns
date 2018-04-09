@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include <array>
+#include <arpa/inet.h>
+#include <string.h>
 
 template<int N>
 struct SafeArray
