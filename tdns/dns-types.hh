@@ -69,3 +69,14 @@ struct MXGenerator : RRGenerator
   uint16_t d_prio;
   dnsname d_name;
 };
+
+struct TXTGenerator : RRGenerator
+{
+  TXTGenerator(const std::string& txt) : d_txt(txt) {}
+  static std::unique_ptr<RRGenerator> make(const std::string& txt)
+  {
+    return std::move(std::make_unique<TXTGenerator>(txt));
+  }
+  void toMessage(DNSMessageWriter& dpw) override;
+  std::string d_txt;
+};

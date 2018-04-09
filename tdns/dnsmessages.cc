@@ -57,6 +57,7 @@ void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType ty
 
 void DNSMessageWriter::setQuestion(const dnsname& name, DNSType type)
 {
+  dh.ancount = dh.arcount = dh.nscount = 0;
   payload.rewind();
   putName(payload, name);
   payload.putUInt16((uint16_t)type);

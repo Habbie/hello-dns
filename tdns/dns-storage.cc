@@ -45,10 +45,14 @@ const DNSNode* DNSNode::find(dnsname& name, dnsname& last, bool* passedZonecut) 
       return this;
     }
     else {
-      cout<<"Had wildcard match, following"<<endl;
+      cout<<"  Had wildcard match, picking that, matching all labels"<<endl;
+      while(name.size() > 1) {
+        last.push_front(name.back());
+        name.pop_back();
+      }
     }
   }
-  cout<<"Had match, continuing to child '"<<iter->first<<"'"<<endl;
+  cout<<"  Had match, continuing to child '"<<iter->first<<"'"<<endl;
   last.push_front(name.back());
   name.pop_back();
   return iter->second.find(name, last, passedZonecut);
@@ -56,9 +60,9 @@ const DNSNode* DNSNode::find(dnsname& name, dnsname& last, bool* passedZonecut) 
 
 DNSNode* DNSNode::add(dnsname name) 
 {
-  cout<<"Add for '"<<name<<"'"<<endl;
+  cout<<"Add called for '"<<name<<"'"<<endl;
   if(name.size() == 1) {
-    cout<<"Last label, adding "<<name.front()<<endl;
+    cout<<"  Last label, possibly addding, already present="<<children.count(name.front())<<endl;
     return &children[name.front()];
   }
 
@@ -67,7 +71,7 @@ DNSNode* DNSNode::add(dnsname name)
   auto iter = children.find(back);
 
   if(iter == children.end()) {
-    cout<<"Inserting new child for "<<back<<endl;
+    cout<<"Inserting new child for "<<back<<", continuing add there"<<endl;
     return children[back].add(name);
   }
   return iter->second.add(name);
@@ -91,8 +95,7 @@ void DNSNode::visit(std::function<void(const dnsname& name, const DNSNode*)> vis
 // this should perform escaping rules!
 std::ostream & operator<<(std::ostream &os, const dnsname& d)
 {
-  for(const auto& l : d.d_name) {
+  for(const auto& l : d.d_name) 
     os<<l<<".";
-  }
   return os;
 }

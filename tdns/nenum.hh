@@ -1,12 +1,10 @@
 #pragma once
-
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
 #include <array>
 #include <string.h>
-
 
 #define SMARTENUMSTART(x) static constexpr std::pair<x, const char*> enumtypemap##x[]= {
 #define SENUM(x,a1) { x::a1, #a1},
@@ -40,7 +38,6 @@ for(const auto& a : enumtypemap##x)                                    \
 inline std::ostream& operator<<(std::ostream &os, const x& s) {        \
   os << toString(s); return os; }                                      \
                                                                       
-
 #define COMBOENUM4(x, a1,b1,a2,b2,a3,b3,a4,b4) enum class x : uint16_t {     \
     a1=b1, a2=b2, a3=b3, a4=b4 }; SMARTENUMSTART(x) SENUM4(x, a1, a2, a3,a4) \
   SMARTENUMEND(x)  

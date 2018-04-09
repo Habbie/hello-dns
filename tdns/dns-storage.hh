@@ -27,10 +27,11 @@ enum class DNSType : uint16_t
 };
 
 SMARTENUMSTART(DNSType)
-SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, AAAA, IXFR, AAAA, SRV, IXFR, AXFR, ANY)
+SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, IXFR, AAAA, SRV, IXFR, AXFR)
+SENUM(DNSType, ANY)
 SMARTENUMEND(DNSType)
 
-COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional,3 )
+COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3)
 
 struct dnsname
 {
@@ -45,7 +46,7 @@ struct dnsname
   void pop_back() { d_name.pop_back(); }
   auto push_front(const dnslabel& dn) { return d_name.push_front(dn); }
   auto size() { return d_name.size(); }
-
+  void clear() { d_name.clear(); }
   bool makeRelative(const dnsname& root);
   
   std::deque<dnslabel> d_name;
@@ -59,7 +60,6 @@ struct RRGenerator
 {
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
 };
-
 
 struct RRSet
 {

@@ -10,7 +10,6 @@ void AGenerator::toMessage(DNSMessageWriter& dmw)
   dmw.payload.putUInt32(d_ip);
 }
 
-
 std::unique_ptr<RRGenerator> AAAAGenerator::make(const ComboAddress& ca)
 {
   if(ca.sin4.sin_family != AF_INET6)
@@ -46,4 +45,9 @@ void MXGenerator::toMessage(DNSMessageWriter& dmw)
   putName(dmw.payload, d_name);
 }
 
-
+void TXTGenerator::toMessage(DNSMessageWriter& dmw) 
+{
+  // XXX should autosplit
+  dmw.payload.putUInt8(d_txt.length());
+  dmw.payload.putBlob(d_txt);
+}
