@@ -37,12 +37,35 @@ struct SOAGenerator : RRGenerator
     d_mname(mname), d_rname(rname), d_serial(serial), d_minimum(minimum), d_refresh(refresh), d_retry(retry), d_expire(expire)
   {}
 
-  template<typename... Targs>
-  static std::unique_ptr<RRGenerator> make(Targs&&... fargs)
+  template<typename ... Targs>
+  static std::unique_ptr<RRGenerator> make(const dnsname& mname, const dnsname& rname, Targs&& ... fargs)
   {
-    return std::move(std::make_unique<SOAGenerator>(std::forward<Targs>(fargs)...));
+    return std::move(std::make_unique<SOAGenerator>(mname, rname, std::forward<Targs>(fargs)...));
   }
   void toMessage(DNSMessageWriter& dpw) override;
   dnsname d_mname, d_rname;
   uint32_t d_serial, d_minimum, d_refresh, d_retry, d_expire;
+};
+
+struct NameGenerator : RRGenerator
+{
+  NameGenerator(const dnsname& name) : d_name(name) {}
+  static std::unique_ptr<RRGenerator> make(const dnsname& mname)
+  {
+    return std::move(std::make_unique<NameGenerator>(mname));
+  }
+  void toMessage(DNSMessageWriter& dpw) override;
+  dnsname d_name;
+};
+
+struct MXGenerator : RRGenerator
+{
+  MXGenerator(uint16_t prio, const dnsname& name) : d_prio(prio), d_name(name) {}
+  static std::unique_ptr<RRGenerator> make(uint16_t prio, const dnsname& name)
+  {
+    return std::move(std::make_unique<MXGenerator>(prio, name));
+  }
+  void toMessage(DNSMessageWriter& dpw) override;
+  uint16_t d_prio;
+  dnsname d_name;
 };

@@ -35,14 +35,15 @@ void SOAGenerator::toMessage(DNSMessageWriter& dmw)
   dmw.payload.putUInt32(d_minimum);
 }
 
-#if 0
-std::string serializeMXRecord(uint16_t prio, const dnsname& mname)
+void NameGenerator::toMessage(DNSMessageWriter& dmw)
 {
-  SafeArray<256> sa;
-  sa.putUInt16(prio);
-  putName(sa, mname);
-  return sa.serialize();
+  putName(dmw.payload, d_name);
 }
-#endif
+
+void MXGenerator::toMessage(DNSMessageWriter& dmw) 
+{
+  dmw.payload.putUInt16(d_prio);
+  putName(dmw.payload, d_name);
+}
 
 

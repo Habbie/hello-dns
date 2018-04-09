@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include "nenum.hh"
 
 typedef std::string dnslabel;
@@ -44,6 +45,9 @@ struct dnsname
   void pop_back() { d_name.pop_back(); }
   auto push_front(const dnslabel& dn) { return d_name.push_front(dn); }
   auto size() { return d_name.size(); }
+
+  bool makeRelative(const dnsname& root);
+  
   std::deque<dnslabel> d_name;
 };
 
@@ -60,6 +64,10 @@ struct RRGenerator
 struct RRSet
 {
   std::vector<std::unique_ptr<RRGenerator>> contents;
+  void add(std::unique_ptr<RRGenerator>&& rr)
+  {
+    contents.emplace_back(std::move(rr));
+  }
   uint32_t ttl{3600};
 };
 

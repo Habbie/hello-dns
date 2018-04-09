@@ -1,3 +1,4 @@
+#pragma once
 #include "dns.hh"
 #include "safearray.hh"
 #include "dns-storage.hh"

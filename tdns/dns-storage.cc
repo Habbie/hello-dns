@@ -1,6 +1,23 @@
 #include "dns-storage.hh"
 using namespace std;
 
+bool dnsname::makeRelative(const dnsname& root)
+{
+  auto us = d_name, them=root.d_name;
+  while(!them.empty()) {
+    if(us.empty())
+      return false;
+    if(us.back() == them.back()) {
+      us.pop_back();
+      them.pop_back();
+    }
+    else
+      return false;
+  }
+  d_name = us;
+  return true;
+}
+
 const DNSNode* DNSNode::find(dnsname& name, dnsname& last, bool* passedZonecut) const
 {
   cout<<"find for '"<<name<<"', last is now '"<<last<<"'"<<endl;

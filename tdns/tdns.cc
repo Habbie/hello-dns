@@ -18,17 +18,6 @@
 
 using namespace std;
 
-std::string serializeDNSName(const dnsname& dn)
-{
-  std::string ret;
-  for(const auto & l : dn) {
-    ret.append(1, l.size());
-    ret+=l;
-  }
-  ret.append(1, (char)0);
-  return ret;
-}
-
 bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessageWriter& response)
 try
 {
@@ -67,6 +56,8 @@ try
     auto bestzone = fnd->zone;
     dnsname searchname(name), lastnode;
     bool passedZonecut=false;
+    int CNAMELoopCount = 0;
+  loopCNAME:;
     auto node = bestzone->find(searchname, lastnode, &passedZonecut);
     if(passedZonecut)
       response.dh.aa = false;
@@ -84,21 +75,32 @@ try
       if(iter != node->rrsets.end() && passedZonecut) {
         cout<<"Have delegation"<<endl;
         const auto& rrset = iter->second;
+        vector<dnsname> toresolve;
         for(const auto& rr : rrset.contents) {
           response.putRR(DNSSection::Authority, lastnode+zone, DNSType::NS, rrset.ttl, rr);
+          toresolve.push_back(dynamic_cast<NameGenerator*>(rr.get())->d_name);
         }
-        dnsname addname{"ns1", "fra"}, wuh;
-        cout<<"Looking up glue record "<<addname<<endl;
-        auto addnode = bestzone->find(addname, wuh);
-        auto iter2 = addnode->rrsets.find(DNSType::A);
-        if(iter2 != addnode->rrsets.end()) {
-          cout<<"Lastnode for '"<<addname<<"' glue: "<<wuh<<endl;
-          const auto& rrset = iter2->second;
-          for(const auto& rr : rrset.contents) {
-            response.putRR(DNSSection::Additional, wuh+zone, DNSType::A, rrset.ttl, rr);
+
+        for(auto& addname : toresolve ) {
+          if(!addname.makeRelative(zone)) {
+            cout<<addname<<" is not within our zone, not doing glue"<<endl;
+            continue;
+          }
+          dnsname wuh;
+          cout<<"Looking up glue record "<<addname<<" in zone "<<zone<<endl;
+          auto addnode = bestzone->find(addname, wuh);
+          if(!addnode || !addname.empty())  {
+            cout<<"Found nothing, continuing"<<endl;
+          }
+          auto iter2 = addnode->rrsets.find(DNSType::A);
+          if(iter2 != addnode->rrsets.end()) {
+            cout<<"Lastnode for '"<<addname<<"' glue: "<<wuh<<endl;
+            const auto& rrset = iter2->second;
+            for(const auto& rr : rrset.contents) {
+              response.putRR(DNSSection::Additional, wuh+zone, DNSType::A, rrset.ttl, rr);
+            }
           }
         }
-        // should do additional processing here
       }
       else {
         cout<<"This is an NXDOMAIN situation"<<endl;
@@ -128,10 +130,19 @@ try
       else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
         cout<<"We do have a CNAME!"<<endl;
         const auto& rrset = iter->second;
+        dnsname target;
         for(const auto& rr : rrset.contents) {
           response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
+          target=dynamic_cast<NameGenerator*>(rr.get())->d_name;
         }
-        cout<<" We should actually follow this, at least within our zone"<<endl;
+        if(target.makeRelative(zone)) {
+          cout<<"  Should follow CNAME to "<<target<<" within our zone"<<endl;
+          searchname = target;
+          if(CNAMELoopCount++ < 10)
+            goto loopCNAME;
+        }
+        else
+          cout<<"  CNAME points to record "<<target<<" in other zone, good luck"<<endl;
       }
       else {
         cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
@@ -179,12 +190,11 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
 void writeTCPResponse(int sock, const DNSMessageWriter& response)
 {
   string ser="00"+response.serialize();
-  cout<<"Should send a message of "<<ser.size()<<" bytes in response"<<endl;
+  cout<<"Sending a message of "<<ser.size()<<" bytes in response"<<endl;
   uint16_t len = htons(ser.length()-2);
   ser[0] = *((char*)&len);
   ser[1] = *(((char*)&len) + 1);
   SWriten(sock, ser);
-  cout<<"Sent!"<<endl;
 }
 
 void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNode* zones)
@@ -210,8 +220,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       return;
     }
 
-    cout<<"Reading "<<len<<" bytes"<<endl;
-    
     message = SRead(sock, len);
     DNSMessageReader dm;
     memcpy(&dm, message.c_str(), message.size());
@@ -305,25 +313,27 @@ void loadZones(DNSNode& zones)
 {
   auto zone = zones.add({"powerdns", "org"});
   zone->zone = new DNSNode(); // XXX ICK
-  SOAGenerator::make({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1);
-  //  zone->zone->rrsets[DNSType::SOA]={{}};
-  //  zone->zone->rrsets[DNSType::MX]={{serializeMXRecord(25, {"server1", "powerdns", "org"})}};
+  
+  zone->zone->rrsets[DNSType::SOA].add(SOAGenerator::make({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1));
+  zone->zone->rrsets[DNSType::MX].add(MXGenerator::make(25, {"server1", "powerdns", "org"}));
     
-  zone->zone->rrsets[DNSType::A]={{serializeARecord("1.2.3.4")}, 300};
-  zone->zone->rrsets[DNSType::AAAA]={{serializeAAAARecord("::1"), serializeAAAARecord("2001::1"), serializeAAAARecord("2a02:a440:b085:1:beee:7bff:fe89:f0fb")}, 900};
-  zone->zone->rrsets[DNSType::NS]={{serializeDNSName({"ns1", "powerdns", "org"})}, 300};
+  zone->zone->rrsets[DNSType::A].add(AGenerator::make("1.2.3.4"));
+  zone->zone->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
+  zone->zone->rrsets[DNSType::AAAA].ttl= 900;
+  zone->zone->rrsets[DNSType::NS].add(NameGenerator::make({"ns1", "powerdns", "org"}));
 
-  zone->zone->add({"www"})->rrsets[DNSType::CNAME]={{serializeDNSName({"server1","powerdns","org"})}};
+  zone->zone->add({"www"})->rrsets[DNSType::CNAME].add(NameGenerator::make({"server1","powerdns","org"}));
 
-  zone->zone->add({"server1"})->rrsets[DNSType::A]={{serializeARecord("213.244.168.210")}};
-  zone->zone->add({"server1"})->rrsets[DNSType::AAAA]={{serializeAAAARecord("::1")}};
+  zone->zone->add({"server1"})->rrsets[DNSType::A].add(AGenerator::make("213.244.168.210"));
+  zone->zone->add({"server1"})->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
   
   //  zone->zone->add({"*"})->rrsets[(dnstype)DNSType::A]={"\x05\x06\x07\x08"};
 
-  zone->zone->add({"fra"})->rrsets[DNSType::NS]={{serializeDNSName({"ns1","fra","powerdns","org"})}};
+  zone->zone->add({"fra"})->rrsets[DNSType::NS].add(NameGenerator::make({"ns1","fra","powerdns","org"}));
+  zone->zone->add({"fra"})->rrsets[DNSType::NS].add(NameGenerator::make({"ns2","fra","powerdns","org"}));
 
-  zone->zone->add({"ns1", "fra"})->rrsets[DNSType::A]={{serializeARecord("12.13.14.15")}, 86400};
-  zone->zone->add({"NS2", "fra"})->rrsets[DNSType::A]={{serializeARecord("12.13.14.16")}, 86400};
+  zone->zone->add({"ns1", "fra"})->rrsets[DNSType::A].add(AGenerator::make("12.13.14.15"));
+  zone->zone->add({"NS2", "fra"})->rrsets[DNSType::A].add(AGenerator::make("12.13.14.16"));
 }
 
 int main(int argc, char** argv)

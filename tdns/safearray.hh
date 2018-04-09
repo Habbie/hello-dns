@@ -35,11 +35,18 @@ struct SafeArray
     payload.at(payloadpos++)=val;
   }
 
-  void putUInt16(uint16_t val)
+  uint16_t putUInt16(uint16_t val)
   {
     val = htons(val);
     memcpy(&payload.at(payloadpos+2)-2, &val, 2);
     payloadpos+=2;
+    return payloadpos - 2;
+  }
+
+  void putUInt16At(uint16_t pos, uint16_t val)
+  {
+    val = htons(val);
+    memcpy(&payload.at(pos+2)-2, &val, 2);
   }
 
   void putUInt32(uint32_t val)

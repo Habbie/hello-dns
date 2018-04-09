@@ -32,9 +32,9 @@ void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType ty
     putName(payload, name);
     payload.putUInt16((int)type); payload.putUInt16(1);
     payload.putUInt32(ttl);
-    payload.putUInt16(0); // XXXX
+    auto pos = payload.putUInt16(0); // placeholder
     content->toMessage(*this);
-    payload.putBlob(content);
+    payload.putUInt16At(pos, payload.payloadpos-pos-2);
   }
   catch(...) {
     payload.payloadpos = cursize;
