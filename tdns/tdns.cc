@@ -76,43 +76,42 @@ try
     response.dh.aa = 1; 
     
     auto bestzone = fnd->zone;
-    dnsname searchname(name), lastnode;
-    bool passedZonecut=false;
+    dnsname searchname(name), lastnode, zonecutname;
+    const DNSNode* passedZonecut=0;
     int CNAMELoopCount = 0;
-  loopCNAME:;
-    passedZonecut=false;
-    lastnode.clear();
-    auto node = bestzone->find(searchname, lastnode, &passedZonecut);
-    if(passedZonecut)
-      response.dh.aa = false;
     
+  loopCNAME:;
+    lastnode.clear();
+    zonecutname.clear();
+    auto node = bestzone->find(searchname, lastnode, &passedZonecut, &zonecutname);
+
     if(!node) {
       cout<<"Found nothing in zone '"<<zone<<"' for lhs '"<<name<<"'"<<endl;
     }
-    else if(!searchname.empty()) {
-      cout<<"This was a partial match, searchname now "<<searchname<<endl;
+    else if(passedZonecut) {
+      response.dh.aa = false;
+      cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
       
-      for(const auto& rr: node->rrsets) {
+      for(const auto& rr: passedZonecut->rrsets) {
         cout<<"  Have type "<<rr.first<<endl;
       }
-      auto iter = node->rrsets.find(DNSType::NS);
-      if(iter != node->rrsets.end() && passedZonecut) {
-        cout<<"Have delegation"<<endl;
+      auto iter = passedZonecut->rrsets.find(DNSType::NS);
+      if(iter != passedZonecut->rrsets.end()) {
         const auto& rrset = iter->second;
         vector<dnsname> toresolve;
         for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Authority, lastnode+zone, DNSType::NS, rrset.ttl, rr);
+          response.putRR(DNSSection::Authority, zonecutname+zone, DNSType::NS, rrset.ttl, rr);
           toresolve.push_back(dynamic_cast<NameGenerator*>(rr.get())->d_name);
         }
 
         addAdditional(bestzone, zone, toresolve, response);
       }
-      else {
-        cout<<"This is an NXDOMAIN situation"<<endl;
-        const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
-        response.dh.rcode = (int)RCode::Nxdomain;
-        response.putRR(DNSSection::Authority, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
-      }
+    }
+    else if(!searchname.empty()) {
+      cout<<"This is an NXDOMAIN situation"<<endl;
+      const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
+      response.dh.rcode = (int)RCode::Nxdomain;
+      response.putRR(DNSSection::Authority, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
     }
     else {
       cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
@@ -338,6 +337,7 @@ void loadZones(DNSNode& zones)
 
   newzone->add({"ns1", "fra"})->rrsets[DNSType::A].add(AGenerator::make("12.13.14.15"));
   newzone->add({"NS2", "fra"})->rrsets[DNSType::A].add(AGenerator::make("12.13.14.16"));
+  newzone->add({"NS2", "fra"})->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
 }
 
 int main(int argc, char** argv)

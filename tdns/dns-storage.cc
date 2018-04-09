@@ -18,11 +18,15 @@ bool dnsname::makeRelative(const dnsname& root)
   return true;
 }
 
-const DNSNode* DNSNode::find(dnsname& name, dnsname& last, bool* passedZonecut) const
+const DNSNode* DNSNode::find(dnsname& name, dnsname& last, const DNSNode** passedZonecut, dnsname* zonecutname) const
 {
   cout<<"find for '"<<name<<"', last is now '"<<last<<"'"<<endl;
-  if(!last.empty() && passedZonecut && rrsets.count(DNSType::NS)) {
-    *passedZonecut=true;
+  if(!last.empty() && rrsets.count(DNSType::NS)) {
+    cout<<"  passed a zonecut, making note of this"<<endl;
+    if(passedZonecut)
+      *passedZonecut=this;
+    if(zonecutname)
+      *zonecutname=last;
   }
 
   if(name.empty()) {
@@ -55,7 +59,7 @@ const DNSNode* DNSNode::find(dnsname& name, dnsname& last, bool* passedZonecut) 
   cout<<"  Had match, continuing to child '"<<iter->first<<"'"<<endl;
   last.push_front(name.back());
   name.pop_back();
-  return iter->second.find(name, last, passedZonecut);
+  return iter->second.find(name, last, passedZonecut, zonecutname);
 }
 
 DNSNode* DNSNode::add(dnsname name) 

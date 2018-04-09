@@ -81,7 +81,7 @@ struct DNSLabelCompare: public std::binary_function<std::string, std::string, bo
 
 struct DNSNode
 {
-  const DNSNode* find(dnsname& name, dnsname& last, bool* passedZonecut=0) const;
+  const DNSNode* find(dnsname& name, dnsname& last, const DNSNode** passedZonecut=0, dnsname* zonecutname=0) const;
   DNSNode* add(dnsname name);
   std::map<dnslabel, DNSNode, DNSLabelCompare> children;
   std::map<DNSType, RRSet > rrsets;
