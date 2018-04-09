@@ -7,6 +7,7 @@
 #include <array>
 #include <string.h>
 
+
 #define SMARTENUMSTART(x) static constexpr std::pair<x, const char*> enumtypemap##x[]= {
 #define SENUM(x,a1) { x::a1, #a1},
 #define SENUM2(x, a1, ...) SENUM(x,a1) SENUM(x, __VA_ARGS__)
@@ -19,6 +20,8 @@
 #define SENUM9(x, a1, ...)  SENUM(x,a1) SENUM8(x, __VA_ARGS__)
 #define SENUM10(x, a1, ...) SENUM(x,a1) SENUM9(x, __VA_ARGS__)
 #define SENUM11(x, a1, ...) SENUM(x,a1) SENUM10(x, __VA_ARGS__)
+#define SENUM12(x, a1, ...) SENUM(x,a1) SENUM11(x, __VA_ARGS__)
+#define SENUM13(x, a1, ...) SENUM(x,a1) SENUM12(x, __VA_ARGS__)
 
 #define SMARTENUMEND(x) };                                             \
 inline const char* toString(const x& t)                                \
@@ -38,3 +41,6 @@ inline std::ostream& operator<<(std::ostream &os, const x& s) {        \
   os << toString(s); return os; }                                      \
                                                                       
 
+#define COMBOENUM4(x, a1,b1,a2,b2,a3,b3,a4,b4) enum class x : uint16_t {     \
+    a1=b1, a2=b2, a3=b3, a4=b4 }; SMARTENUMSTART(x) SENUM4(x, a1, a2, a3,a4) \
+  SMARTENUMEND(x)  

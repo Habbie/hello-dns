@@ -12,6 +12,8 @@
 #include "dns.hh"
 #include "safearray.hh"
 #include <thread>
+#include <signal.h>
+#include "dns-types.hh"
 #include "dns-storage.hh"
 
 using namespace std;
@@ -127,12 +129,9 @@ std::string serializeMXRecord(uint16_t prio, const dnsname& mname)
 std::string serializeSOARecord(const dnsname& mname, const dnsname& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800)
 {
   SafeArray<256> sa;
-  putName(sa, mname);
-  putName(sa, rname);
-  sa.putUInt32(serial);
-  sa.putUInt32(refresh);
-  sa.putUInt32(retry);
-  sa.putUInt32(expire);
+  putName(sa, mname);    putName(sa, rname);
+  sa.putUInt32(serial);  sa.putUInt32(refresh);
+  sa.putUInt32(retry);   sa.putUInt32(expire);
   sa.putUInt32(minimum);
   
   return sa.serialize();
@@ -155,8 +154,6 @@ std::string serializeAAAARecord(const std::string& src)
   auto p = (const char*)ca.sin6.sin6_addr.s6_addr;
   return std::string(p, p+16);
 }
-
-
 
 bool processQuestion(const DNSNode& zones, DNSMessage& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessage& response)
 try
@@ -214,7 +211,18 @@ try
         cout<<"Have delegation"<<endl;
         const auto& rrset = iter->second;
         for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Answer, lastnode+zone, DNSType::NS, rrset.ttl, rr);
+          response.putRR(DNSSection::Authority, lastnode+zone, DNSType::NS, rrset.ttl, rr);
+        }
+        dnsname addname{"ns1", "fra"}, wuh;
+        cout<<"Looking up glue record "<<addname<<endl;
+        auto addnode = bestzone->find(addname, wuh);
+        auto iter2 = addnode->rrsets.find(DNSType::A);
+        if(iter2 != addnode->rrsets.end()) {
+          cout<<"Lastnode for '"<<addname<<"' glue: "<<wuh<<endl;
+          const auto& rrset = iter2->second;
+          for(const auto& rr : rrset.contents) {
+            response.putRR(DNSSection::Additional, wuh+zone, DNSType::A, rrset.ttl, rr);
+          }
         }
         // should do additional processing here
       }
@@ -372,7 +380,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       response.payload.rewind();
       response.setQuestion(zone, type);
 
-      
       // send all other records
       node->visit([&response,&sock,&name,&type,&zone](const dnsname& nname, const DNSNode* n) {
           cout<<nname<<", types: ";
@@ -384,7 +391,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
               try {
                 response.putRR(DNSSection::Answer, nname, p.first, p.second.ttl, rr);
               }
-              catch(...) {
+              catch(...) { // exceeded packet size
                 writeTCPResponse(sock, response);
                 response.dh.ancount = response.dh.arcount = response.dh.nscount = 0;
                 response.payload.rewind();
@@ -406,7 +413,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
 
       writeTCPResponse(sock, response);
-      
       return;
     }
     else {
@@ -420,7 +426,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     }
   }
 }
-
 
 void loadZones(DNSNode& zones)
 {
@@ -448,6 +453,7 @@ void loadZones(DNSNode& zones)
 
 int main(int argc, char** argv)
 {
+  signal(SIGPIPE, SIG_IGN);
   ComboAddress local(argv[1], 53);
 
   Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
@@ -459,7 +465,6 @@ int main(int argc, char** argv)
   SListen(tcplistener, 10);
   
   DNSNode zones;
-
   loadZones(zones);
   
   thread udpServer(udpThread, local, &udplistener, &zones);
@@ -470,5 +475,4 @@ int main(int argc, char** argv)
     thread t(tcpClientThread, local, remote, client, &zones);
     t.detach();
   }
-  udpServer.join();
 }

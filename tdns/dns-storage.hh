@@ -20,24 +20,16 @@ SMARTENUMSTART(RCode)
 SENUM5(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused)
 SMARTENUMEND(RCode)
 
-
 enum class DNSType : uint16_t
 {
-  A = 1, NS = 2, CNAME = 5, SOA=6, MX=15, AAAA = 28, IXFR = 251, AXFR = 252, ANY = 255
+  A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, IXFR = 251, AXFR = 252, ANY = 255
 };
 
 SMARTENUMSTART(DNSType)
-SENUM11(DNSType, A, NS, CNAME, SOA, MX, AAAA, IXFR, AAAA, IXFR, AXFR, ANY)
+SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, AAAA, IXFR, AAAA, SRV, IXFR, AXFR, ANY)
 SMARTENUMEND(DNSType)
 
-enum class DNSSection
-{
-  Question, Answer, Authority, Additional
-};
-
-SMARTENUMSTART(DNSSection)
-SENUM4(DNSSection, Question, Answer, Authority, Additional)
-SMARTENUMEND(DNSSection)
+COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional,3 )
 
 struct dnsname
 {
@@ -55,9 +47,9 @@ struct dnsname
   std::deque<dnslabel> d_name;
 };
 
-
 std::ostream & operator<<(std::ostream &os, const dnsname& d);
 dnsname operator+(const dnsname& a, const dnsname& b);
+
 struct RRSet
 {
   std::vector<std::string> contents;
