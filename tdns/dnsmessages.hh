@@ -18,7 +18,7 @@ struct DNSMessageWriter
   struct dnsheader dh=dnsheader{};
   SafeArray<1500> payload;
   void setQuestion(const dnsname& name, DNSType type);
-  void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::string& rr);
+  void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGenerator>& rr);
   std::string serialize() const;
 };
 

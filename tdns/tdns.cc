@@ -18,8 +18,6 @@
 
 using namespace std;
 
-
-
 std::string serializeDNSName(const dnsname& dn)
 {
   std::string ret;
@@ -29,44 +27,6 @@ std::string serializeDNSName(const dnsname& dn)
   }
   ret.append(1, (char)0);
   return ret;
-}
-
-std::string serializeMXRecord(uint16_t prio, const dnsname& mname)
-{
-  SafeArray<256> sa;
-  sa.putUInt16(prio);
-  putName(sa, mname);
-  return sa.serialize();
-}
-
-
-std::string serializeSOARecord(const dnsname& mname, const dnsname& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800)
-{
-  SafeArray<256> sa;
-  putName(sa, mname);    putName(sa, rname);
-  sa.putUInt32(serial);  sa.putUInt32(refresh);
-  sa.putUInt32(retry);   sa.putUInt32(expire);
-  sa.putUInt32(minimum);
-  
-  return sa.serialize();
-}
-
-std::string serializeARecord(const std::string& src)
-{
-  ComboAddress ca(src);
-  if(ca.sin4.sin_family != AF_INET)
-    throw std::runtime_error("Could not convert '"+src+"' to an IPv4 address");
-  auto p = (const char*)&ca.sin4.sin_addr.s_addr;
-  return std::string(p, p+4);
-}
-
-std::string serializeAAAARecord(const std::string& src)
-{
-  ComboAddress ca(src);
-  if(ca.sin4.sin_family != AF_INET6)
-    throw std::runtime_error("Could not convert '"+src+"' to an IPv6 address");
-  auto p = (const char*)ca.sin6.sin6_addr.s6_addr;
-  return std::string(p, p+16);
 }
 
 bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessageWriter& response)
@@ -345,8 +305,9 @@ void loadZones(DNSNode& zones)
 {
   auto zone = zones.add({"powerdns", "org"});
   zone->zone = new DNSNode(); // XXX ICK
-  zone->zone->rrsets[DNSType::SOA]={{serializeSOARecord({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1)}};
-  zone->zone->rrsets[DNSType::MX]={{serializeMXRecord(25, {"server1", "powerdns", "org"})}};
+  SOAGenerator::make({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1);
+  //  zone->zone->rrsets[DNSType::SOA]={{}};
+  //  zone->zone->rrsets[DNSType::MX]={{serializeMXRecord(25, {"server1", "powerdns", "org"})}};
     
   zone->zone->rrsets[DNSType::A]={{serializeARecord("1.2.3.4")}, 300};
   zone->zone->rrsets[DNSType::AAAA]={{serializeAAAARecord("::1"), serializeAAAARecord("2001::1"), serializeAAAARecord("2a02:a440:b085:1:beee:7bff:fe89:f0fb")}, 900};

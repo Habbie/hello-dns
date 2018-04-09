@@ -1,4 +1,5 @@
 #include "dnsmessages.hh"
+#include "dns-types.hh"
 
 using namespace std;
 
@@ -24,14 +25,15 @@ void DNSMessageReader::getQuestion(dnsname& name, DNSType& type)
 }
 
 
-void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::string& content)
+void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGenerator>& content)
 {
   auto cursize = payload.payloadpos;
   try {
     putName(payload, name);
     payload.putUInt16((int)type); payload.putUInt16(1);
     payload.putUInt32(ttl);
-    payload.putUInt16(content.size()); // check for overflow!
+    payload.putUInt16(0); // XXXX
+    content->toMessage(*this);
     payload.putBlob(content);
   }
   catch(...) {

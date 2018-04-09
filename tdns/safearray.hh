@@ -55,6 +55,12 @@ struct SafeArray
     payloadpos += blob.size();;
   }
 
+  void putBlob(const unsigned char* blob, int size)
+  {
+    memcpy(&payload.at(payloadpos+size) - size, blob, size);
+    payloadpos += size;
+  }
+  
   std::string getBlob(int size)
   {
     std::string ret(&payload.at(payloadpos), &payload.at(payloadpos+size));

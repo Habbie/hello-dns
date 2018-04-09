@@ -50,9 +50,16 @@ struct dnsname
 std::ostream & operator<<(std::ostream &os, const dnsname& d);
 dnsname operator+(const dnsname& a, const dnsname& b);
 
+struct DNSMessageWriter;
+struct RRGenerator
+{
+  virtual void toMessage(DNSMessageWriter& dpw) = 0;
+};
+
+
 struct RRSet
 {
-  std::vector<std::string> contents;
+  std::vector<std::unique_ptr<RRGenerator>> contents;
   uint32_t ttl{3600};
 };
 
