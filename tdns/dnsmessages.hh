@@ -23,7 +23,7 @@ struct DNSMessageWriter
   std::string serialize() const;
 };
 
-void putName(auto& payload, const dnsname& name)
+inline void putName(SafeArray<1500>& payload, const dnsname& name)
   {
   for(const auto& l : name) {
     if(l.size() > 63)

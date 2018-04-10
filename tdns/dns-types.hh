@@ -40,7 +40,7 @@ struct SOAGenerator : RRGenerator
   template<typename ... Targs>
   static std::unique_ptr<RRGenerator> make(const dnsname& mname, const dnsname& rname, Targs&& ... fargs)
   {
-    return std::move(std::make_unique<SOAGenerator>(mname, rname, std::forward<Targs>(fargs)...));
+    return std::make_unique<SOAGenerator>(mname, rname, std::forward<Targs>(fargs)...);
   }
   void toMessage(DNSMessageWriter& dpw) override;
   dnsname d_mname, d_rname;
@@ -52,7 +52,7 @@ struct NameGenerator : RRGenerator
   NameGenerator(const dnsname& name) : d_name(name) {}
   static std::unique_ptr<RRGenerator> make(const dnsname& mname)
   {
-    return std::move(std::make_unique<NameGenerator>(mname));
+    return std::make_unique<NameGenerator>(mname);
   }
   void toMessage(DNSMessageWriter& dpw) override;
   dnsname d_name;
@@ -63,7 +63,7 @@ struct MXGenerator : RRGenerator
   MXGenerator(uint16_t prio, const dnsname& name) : d_prio(prio), d_name(name) {}
   static std::unique_ptr<RRGenerator> make(uint16_t prio, const dnsname& name)
   {
-    return std::move(std::make_unique<MXGenerator>(prio, name));
+    return std::make_unique<MXGenerator>(prio, name);
   }
   void toMessage(DNSMessageWriter& dpw) override;
   uint16_t d_prio;
@@ -75,7 +75,7 @@ struct TXTGenerator : RRGenerator
   TXTGenerator(const std::string& txt) : d_txt(txt) {}
   static std::unique_ptr<RRGenerator> make(const std::string& txt)
   {
-    return std::move(std::make_unique<TXTGenerator>(txt));
+    return std::make_unique<TXTGenerator>(txt);
   }
   void toMessage(DNSMessageWriter& dpw) override;
   std::string d_txt;

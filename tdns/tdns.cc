@@ -117,23 +117,26 @@ try
       cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
       
       auto iter = node->rrsets.cbegin();
+      vector<dnsname> additional;
       if(type == DNSType::ANY) {
         for(const auto& t : node->rrsets) {
           const auto& rrset = t.second;
           for(const auto& rr : rrset.contents) {
             response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
+            if(t.first == DNSType::MX)
+              additional.push_back(dynamic_cast<MXGenerator*>(rr.get())->d_name);
+
           }
         }
       }
       else if(iter = node->rrsets.find(type), iter != node->rrsets.end()) {
         const auto& rrset = iter->second;
-        vector<dnsname> additional;
         for(const auto& rr : rrset.contents) {
           response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
           if(type == DNSType::MX)
             additional.push_back(dynamic_cast<MXGenerator*>(rr.get())->d_name);
         }
-        addAdditional(bestzone, zone, additional, response);
+
       }
       else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
         cout<<"We do have a CNAME!"<<endl;
@@ -158,6 +161,8 @@ try
         const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
         response.putRR(DNSSection::Answer, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
       }
+      addAdditional(bestzone, zone, additional, response);
+      
     }
   }
   else {
@@ -306,39 +311,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
   }
 }
 
-void loadZones(DNSNode& zones)
-{
-  auto zone = zones.add({"powerdns", "org"});
-  auto newzone = zone->zone = new DNSNode(); // XXX ICK
-  
-  newzone->rrsets[DNSType::SOA].add(SOAGenerator::make({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1));
-  newzone->rrsets[DNSType::MX].add(MXGenerator::make(25, {"server1", "powerdns", "org"}));
-    
-  newzone->rrsets[DNSType::A].add(AGenerator::make("1.2.3.4"));
-  newzone->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
-  newzone->rrsets[DNSType::AAAA].ttl= 900;
-  newzone->rrsets[DNSType::NS].add(NameGenerator::make({"ns1", "powerdns", "org"}));
-  newzone->rrsets[DNSType::TXT].add(TXTGenerator::make("Proudly served by tdns " __DATE__ " " __TIME__));
-
-  newzone->add({"www"})->rrsets[DNSType::CNAME].add(NameGenerator::make({"server1","powerdns","org"}));
-  newzone->add({"www2"})->rrsets[DNSType::CNAME].add(NameGenerator::make({"nosuchserver1","powerdns","org"}));
-
-  newzone->add({"server1"})->rrsets[DNSType::A].add(AGenerator::make("213.244.168.210"));
-  newzone->add({"server1"})->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
-
-  newzone->add({"server2"})->rrsets[DNSType::A].add(AGenerator::make("213.244.168.210"));
-  newzone->add({"server2"})->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
-  
-  newzone->add({"*", "nl"})->rrsets[DNSType::A].add(AGenerator::make("5.6.7.8"));
-  newzone->add({"*", "fr"})->rrsets[DNSType::CNAME].add(NameGenerator::make({"server2", "powerdns", "org"}));
-
-  newzone->add({"fra"})->rrsets[DNSType::NS].add(NameGenerator::make({"ns1","fra","powerdns","org"}));
-  newzone->add({"fra"})->rrsets[DNSType::NS].add(NameGenerator::make({"ns2","fra","powerdns","org"}));
-
-  newzone->add({"ns1", "fra"})->rrsets[DNSType::A].add(AGenerator::make("12.13.14.15"));
-  newzone->add({"NS2", "fra"})->rrsets[DNSType::A].add(AGenerator::make("12.13.14.16"));
-  newzone->add({"NS2", "fra"})->rrsets[DNSType::AAAA].add(AAAAGenerator::make("::1"));
-}
 
 int main(int argc, char** argv)
 try

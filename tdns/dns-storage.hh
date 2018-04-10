@@ -90,3 +90,4 @@ struct DNSNode
 };
 
 
+void loadZones(DNSNode& zones);
