@@ -67,7 +67,7 @@ When storing data for the org zone, it may look like this:
 *************************************************************************************************
 *                                                                                               *
 *                                   .---.                                                       *
-*   1                    +---------+  .  +--------+                                             *
+*   1                    +---------+     +--------+                                             *
 *                       /           '-+-'          \                                            *
 *                      /              |             \                                           *
 *                   .-+-.           .-+-.          .-+-.                                        *
@@ -107,11 +107,10 @@ downward again, starting at the apex with `ns1.ord.ietf` and going to the
 `ietf`, `ord` and finally `ns1` labels. There we find attached the IP(v6)
 addresses.
 
-<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="ext/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
+TBC..
 
 
- This
-is implemented in `dns-storage.cc` and `dns-storage.hh`. 
+ This is implemented in `dns-storage.cc` and `dns-storage.hh`. 
 
 This lookup mechanism will tell you if a name is fully present in a zone, or
 if it was matched by an NS record. It will also perform wildcard matching,
@@ -121,3 +120,5 @@ but not CNAME chasing.
 The code does not do any form of DNS escaping. Instead, DNS names are stored
 and manipulated as a sequence of DNS labels. So instead of messing with
 "www.powerdns.org", we use {"www", "powerdns", "org"}. 
+
+<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="../ext/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
