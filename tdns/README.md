@@ -26,14 +26,14 @@ Features are complete:
  * Delegations
  * Glue records
  * Truncation
+ * EDNS (buffer size, no options)
 
 Missing:
- * Compression (may not fit in the 1000 lines!)
- * EDNS (not 'basic' DNS by our definition, but ok)
+ * Compression (may not fit in the 1200 lines!)
 
 Known broken:
- * Embedded 0s in DNS labels don't yet work
- * Case-insensitive comparison isn't 100% correct 
+ * ~~Embedded 0s in DNS labels don't yet work~~
+ * ~~Case-insensitive comparison isn't 100% correct~~
  * RCode after one CNAME chase
  * On output (to screen) we do not escape DNS names correctly
  * TCP/IP does not follow recommended timeouts

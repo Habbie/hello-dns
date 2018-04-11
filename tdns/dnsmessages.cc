@@ -22,8 +22,8 @@ void DNSMessageReader::getQuestion(dnsname& name, DNSType& type)
 {
   name=getName();
   type=(DNSType)payload.getUInt16();
+  payload.getUInt16(); // skip the class
 }
-
 
 void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
@@ -53,6 +53,21 @@ void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType ty
       dh.arcount = htons(ntohs(dh.arcount) + 1);
       break;
   }
+}
+
+void DNSMessageWriter::putEDNS(uint16_t bufsize, bool doBit)
+{
+  auto cursize = payloadpos;
+  try {
+    putUInt8(0); putUInt16((uint16_t)DNSType::OPT); // 'root' name, our type
+    putUInt16(bufsize); putUInt16(0); putUInt8(doBit ? 0x80 : 0); putUInt8(0);
+    putUInt16(0);
+  }
+  catch(...) {
+    payloadpos = cursize;
+    throw;
+  }
+  dh.nscount = htons(ntohs(dh.nscount)+1);
 }
 
 void DNSMessageWriter::setQuestion(const dnsname& name, DNSType type)

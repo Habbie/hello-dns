@@ -25,6 +25,8 @@ struct DNSMessageWriter
   std::vector<uint8_t> payload;
   void setQuestion(const dnsname& name, DNSType type);
   void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
+
+  void putEDNS(uint16_t bufsize, bool doBit);
   std::string serialize() const;
 
   uint16_t payloadpos=0;

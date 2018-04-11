@@ -44,12 +44,28 @@ void addAdditional(const DNSNode* bestzone, const dnsname& zone, const vector<dn
 
 bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessageWriter& response)
 {
-  dnsname name, origname;
+  dnsname name;
   DNSType type;
   dm.getQuestion(name, type);
-  origname=name; // we munch on this below
+  dnsname origname=name; // we need this for error reporting, we munch the original name
+  bool haveEDNS=false;
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<type<<endl;
-
+  uint16_t newsize=0;
+  bool doBit=false;
+  if(dm.dh.arcount) {
+    if(dm.payload.getUInt8() == 0 && dm.payload.getUInt16() == (uint16_t)DNSType::OPT) {
+      haveEDNS=true;
+      newsize=dm.payload.getUInt16();
+      dm.payload.getUInt16(); // extended RCODE, EDNS version
+      auto flags = dm.payload.getUInt8();
+      doBit = flags & 0x80;
+      dm.payload.getUInt8(); dm.payload.getUInt16(); // ignore rest
+      cout<<"   There was an EDNS section, size supported: "<<newsize<<endl;
+      if(newsize > sizeof(dnsheader))
+        response.payload.resize(newsize - sizeof(dnsheader));
+      
+    }
+  }
   try {
     response.dh = dm.dh;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
@@ -162,12 +178,14 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
           response.putRR(DNSSection::Answer, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
         }
         addAdditional(bestzone, zone, additional, response);
-      
       }
     }
     else {
       cout<<"No zone matched"<<endl;
       response.dh.rcode = (uint8_t)RCode::Refused;
+    }
+    if(haveEDNS) {
+      response.putEDNS(newsize, doBit);
     }
     return true;
   }
@@ -175,6 +193,10 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     cout<<"Query for '"<<origname<<"'|"<<type<<" got truncated"<<endl;
     response.setQuestion(origname, type); // this resets the packet
     response.dh.tc=1; response.dh.aa=0;
+    if(haveEDNS) {
+      response.putEDNS(newsize, doBit);
+    }
+      
     return true;
   }
   catch(std::exception& e) {

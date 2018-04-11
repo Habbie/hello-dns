@@ -14,18 +14,28 @@ class dnslabel
 {
 public:
   dnslabel() {}
-  dnslabel(const char* s) : d_s(s) {} // XXX check length here!
+  dnslabel(const char* s) : dnslabel(std::string(s)) {} 
   dnslabel(const std::string& s) : d_s(s) {} // XXX check length here!
   bool operator<(const dnslabel& rhs) const
   {
-    return strcasecmp(d_s.c_str(), rhs.d_s.c_str()) < 0; // XXX locale pain, plus embedded zeros
+    return std::lexicographical_compare(d_s.begin(), d_s.end(), rhs.d_s.begin(), rhs.d_s.end(), charcomp);
   }
   bool operator==(const dnslabel &rhs) const
   {
-    return strcasecmp(d_s.c_str(), rhs.d_s.c_str()) == 0; // XXX locale pain, plus embedded zeros
+    return !(*this < rhs) && !(rhs<*this);
   }
   auto size() const { return d_s.size(); }
   std::string d_s;
+private:
+  static bool charcomp(char a, char b)
+  {
+    if(a >= 0x61 && a <= 0x7A)
+      a -= 0x20;
+    if(b >= 0x61 && b <= 0x7A)
+      b -= 0x20;
+    return a < b;
+  }
+
 };
 std::ostream & operator<<(std::ostream &os, const dnslabel& d);
 
@@ -40,12 +50,12 @@ SMARTENUMEND(RCode)
 
 enum class DNSType : uint16_t
 {
-  A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, IXFR = 251, AXFR = 252, ANY = 255
+  A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, OPT=41, IXFR = 251, AXFR = 252, ANY = 255
 };
 
 SMARTENUMSTART(DNSType)
-SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, IXFR, AAAA, SRV, IXFR, AXFR)
-SENUM(DNSType, ANY)
+SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, IXFR, AAAA, SRV, OPT, IXFR)
+SENUM2(DNSType, AXFR, ANY)
 SMARTENUMEND(DNSType)
 
 COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3)
