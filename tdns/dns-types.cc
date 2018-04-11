@@ -7,7 +7,7 @@ std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
 
 void AGen::toMessage(DNSMessageWriter& dmw)
 {
-  dmw.payload.putUInt32(d_ip);
+  dmw.putUInt32(d_ip);
 }
 
 std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
@@ -23,39 +23,39 @@ std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
 
 void AAAAGen::toMessage(DNSMessageWriter& dmw)
 {
-  dmw.payload.putBlob(d_ip, 16);
+  dmw.putBlob(d_ip, 16);
 }
 
 void SOAGen::toMessage(DNSMessageWriter& dmw)
 {
-  putName(dmw.payload, d_mname);    putName(dmw.payload, d_rname);
-  dmw.payload.putUInt32(d_serial);  dmw.payload.putUInt32(d_refresh);
-  dmw.payload.putUInt32(d_retry);   dmw.payload.putUInt32(d_expire);
-  dmw.payload.putUInt32(d_minimum);
+  dmw.putName(d_mname);    dmw.putName(d_rname);
+  dmw.putUInt32(d_serial);  dmw.putUInt32(d_refresh);
+  dmw.putUInt32(d_retry);   dmw.putUInt32(d_expire);
+  dmw.putUInt32(d_minimum);
 }
 
 void CNAMEGen::toMessage(DNSMessageWriter& dmw)
 {
-  putName(dmw.payload, d_name);
+  dmw.putName(d_name);
 }
 
 void NSGen::toMessage(DNSMessageWriter& dmw)
 {
-  putName(dmw.payload, d_name);
+  dmw.putName(d_name);
 }
 
 
 void MXGen::toMessage(DNSMessageWriter& dmw) 
 {
-  dmw.payload.putUInt16(d_prio);
-  putName(dmw.payload, d_name);
+  dmw.putUInt16(d_prio);
+  dmw.putName(d_name);
 }
 
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
   // XXX should autosplit
-  dmw.payload.putUInt8(d_txt.length());
-  dmw.payload.putBlob(d_txt);
+  dmw.putUInt8(d_txt.length());
+  dmw.putBlob(d_txt);
 }
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 
@@ -70,6 +70,6 @@ void ClockTXTGen::toMessage(DNSMessageWriter& dmw)
   else
     txt="Overflow";
   // XXX should autosplit
-  dmw.payload.putUInt8(txt.length());
-  dmw.payload.putBlob(txt);
+  dmw.putUInt8(txt.length());
+  dmw.putBlob(txt);
 }

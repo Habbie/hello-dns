@@ -27,17 +27,17 @@ void DNSMessageReader::getQuestion(dnsname& name, DNSType& type)
 
 void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
-  auto cursize = payload.payloadpos;
+  auto cursize = payloadpos;
   try {
-    putName(payload, name);
-    payload.putUInt16((int)type); payload.putUInt16(1);
-    payload.putUInt32(ttl);
-    auto pos = payload.putUInt16(0); // placeholder
+    putName(name);
+    putUInt16((int)type); putUInt16(1);
+    putUInt32(ttl);
+    auto pos = putUInt16(0); // placeholder
     content->toMessage(*this);
-    payload.putUInt16At(pos, payload.payloadpos-pos-2);
+    putUInt16At(pos, payloadpos-pos-2);
   }
   catch(...) {
-    payload.payloadpos = cursize;
+    payloadpos = cursize;
     throw;
   }
   switch(section) {
@@ -58,10 +58,10 @@ void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType ty
 void DNSMessageWriter::setQuestion(const dnsname& name, DNSType type)
 {
   dh.ancount = dh.arcount = dh.nscount = 0;
-  payload.rewind();
-  putName(payload, name);
-  payload.putUInt16((uint16_t)type);
-  payload.putUInt16(1); // class
+  payloadpos=0;
+  putName(name);
+  putUInt16((uint16_t)type);
+  putUInt16(1); // class
 }
 
 string DNSMessageReader::serialize() const
@@ -70,7 +70,9 @@ string DNSMessageReader::serialize() const
 }
 string DNSMessageWriter::serialize() const
 {
-  return string((const char*)this, (const char*)this + sizeof(dnsheader) + payload.payloadpos);
+  std::string ret((const char*)this, (const char*)this + sizeof(dnsheader));
+  ret.append((const unsigned char*)&payload[0], (const unsigned char*)&payload[payloadpos]);
+  return ret;
 }
 
 static_assert(sizeof(DNSMessageReader) == 516, "dnsmessagereader size must be 516");

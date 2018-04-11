@@ -19,13 +19,12 @@ using namespace std;
 void addAdditional(const DNSNode* bestzone, const dnsname& zone, const vector<dnsname>& toresolve, DNSMessageWriter& response)
 {
   for(auto addname : toresolve ) {
-    cout<<"Doing additional or glue lookup for "<<addname<<endl;
+    cout<<"Doing additional or glue lookup for "<<addname<<" in "<<zone<<endl;
     if(!addname.makeRelative(zone)) {
       cout<<addname<<" is not within our zone, not doing glue"<<endl;
       continue;
     }
     dnsname wuh;
-    cout<<"Looking up glue record "<<addname<<" in zone "<<zone<<endl;
     auto addnode = bestzone->find(addname, wuh);
     if(!addnode || !addname.empty())  {
       cout<<"  Found nothing, continuing"<<endl;
@@ -44,136 +43,144 @@ void addAdditional(const DNSNode* bestzone, const dnsname& zone, const vector<dn
 }
 
 bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessageWriter& response)
-try
 {
-  dnsname name;
+  dnsname name, origname;
   DNSType type;
   dm.getQuestion(name, type);
+  origname=name; // we munch on this below
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<type<<endl;
-  
-  response.dh = dm.dh;
-  response.dh.ad = response.dh.ra = response.dh.aa = 0;
-  response.dh.qr = 1;
-  response.setQuestion(name, type);
-  
-  if(type == DNSType::AXFR || type == DNSType::IXFR)  {
-    cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
-    response.dh.rcode = (int)RCode::Servfail;
-    return true;
-  }
 
-  if(dm.dh.opcode != 0) {
-    cout<<"Query had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
-    response.dh.rcode = (int)RCode::Notimp;
-    return true;
-  }
+  try {
+    response.dh = dm.dh;
+    response.dh.ad = response.dh.ra = response.dh.aa = 0;
+    response.dh.qr = 1;
+    response.setQuestion(name, type);
     
-  dnsname zone;
-  auto fnd = zones.find(name, zone);
-  if(fnd && fnd->zone) {
-    cout<<"---\nBest zone: "<<zone<<", name now "<<name<<", loaded: "<<(void*)fnd->zone<<endl;
-
-    response.dh.aa = 1; 
-    
-    auto bestzone = fnd->zone;
-    dnsname searchname(name), lastnode, zonecutname;
-    const DNSNode* passedZonecut=0;
-    int CNAMELoopCount = 0;
-    
-  loopCNAME:;
-    lastnode.clear();
-    zonecutname.clear();
-    auto node = bestzone->find(searchname, lastnode, &passedZonecut, &zonecutname);
-
-    if(!node) {
-      cout<<"Found nothing in zone '"<<zone<<"' for lhs '"<<name<<"'"<<endl;
+    if(type == DNSType::AXFR || type == DNSType::IXFR)  {
+      cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
+      response.dh.rcode = (int)RCode::Servfail;
+      return true;
     }
-    else if(passedZonecut) {
-      response.dh.aa = false;
-      cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
-      
-      for(const auto& rr: passedZonecut->rrsets) {
-        cout<<"  Have type "<<rr.first<<endl;
+
+    if(dm.dh.opcode != 0) {
+      cout<<"Query had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
+      response.dh.rcode = (int)RCode::Notimp;
+      return true;
+    }
+    
+    dnsname zone;
+    auto fnd = zones.find(name, zone);
+    if(fnd && fnd->zone) {
+      cout<<"---\nBest zone: "<<zone<<", name now "<<name<<", loaded: "<<(void*)fnd->zone<<endl;
+
+      response.dh.aa = 1; 
+    
+      auto bestzone = fnd->zone;
+      dnsname searchname(name), lastnode, zonecutname;
+      const DNSNode* passedZonecut=0;
+      int CNAMELoopCount = 0;
+    
+    loopCNAME:;
+      auto node = bestzone->find(searchname, lastnode, &passedZonecut, &zonecutname);
+
+      if(!node) {
+        cout<<"Found nothing in zone '"<<zone<<"' for lhs '"<<name<<"'"<<endl;
       }
-      auto iter = passedZonecut->rrsets.find(DNSType::NS);
-      if(iter != passedZonecut->rrsets.end()) {
-        const auto& rrset = iter->second;
-        vector<dnsname> toresolve;
-        for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Authority, zonecutname+zone, DNSType::NS, rrset.ttl, rr);
-          toresolve.push_back(dynamic_cast<NSGen*>(rr.get())->d_name);
+      else if(passedZonecut) {
+        response.dh.aa = false;
+        cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
+      
+        for(const auto& rr: passedZonecut->rrsets) {
+          cout<<"  Have type "<<rr.first<<endl;
         }
-
-        addAdditional(bestzone, zone, toresolve, response);
-      }
-    }
-    else if(!searchname.empty()) {
-      cout<<"This is an NXDOMAIN situation"<<endl;
-      const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
-      response.dh.rcode = (int)RCode::Nxdomain;
-      response.putRR(DNSSection::Authority, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
-    }
-    else {
-      cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
-      
-      auto iter = node->rrsets.cbegin();
-      vector<dnsname> additional;
-      if(type == DNSType::ANY) {
-        for(const auto& t : node->rrsets) {
-          const auto& rrset = t.second;
+        auto iter = passedZonecut->rrsets.find(DNSType::NS);
+        if(iter != passedZonecut->rrsets.end()) {
+          const auto& rrset = iter->second;
+          vector<dnsname> toresolve;
           for(const auto& rr : rrset.contents) {
-            response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
-            if(t.first == DNSType::MX)
-              additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
-
+            response.putRR(DNSSection::Authority, zonecutname+zone, DNSType::NS, rrset.ttl, rr);
+            toresolve.push_back(dynamic_cast<NSGen*>(rr.get())->d_name);
           }
+          addAdditional(bestzone, zone, toresolve, response);
         }
       }
-      else if(iter = node->rrsets.find(type), iter != node->rrsets.end()) {
-        const auto& rrset = iter->second;
-        for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
-          if(type == DNSType::MX)
-            additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
-        }
-
-      }
-      else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
-        cout<<"We do have a CNAME!"<<endl;
-        const auto& rrset = iter->second;
-        dnsname target;
-        for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
-          target=dynamic_cast<CNAMEGen*>(rr.get())->d_name;
-        }
-        if(target.makeRelative(zone)) {
-          cout<<"  Should follow CNAME to "<<target<<" within our zone"<<endl;
-          // XXX we need to change our behaviour on NXDOMAIN I think depending on if you've followed a CNAME
-          searchname = target; 
-          if(CNAMELoopCount++ < 10)  
-            goto loopCNAME;
-        }
-        else
-          cout<<"  CNAME points to record "<<target<<" in other zone, good luck"<<endl;
+      else if(!searchname.empty()) {
+        cout<<"This is an NXDOMAIN situation"<<endl;
+        const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
+        response.dh.rcode = (int)RCode::Nxdomain;
+        response.putRR(DNSSection::Authority, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
       }
       else {
-        cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
-        const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
-        response.putRR(DNSSection::Answer, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
-      }
-      addAdditional(bestzone, zone, additional, response);
+        cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
       
+        auto iter = node->rrsets.cbegin();
+        vector<dnsname> additional;
+        if(type == DNSType::ANY) {
+          for(const auto& t : node->rrsets) {
+            const auto& rrset = t.second;
+            for(const auto& rr : rrset.contents) {
+              response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
+              if(t.first == DNSType::MX)
+                additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
+
+            }
+          }
+        }
+        else if(iter = node->rrsets.find(type), iter != node->rrsets.end()) {
+          const auto& rrset = iter->second;
+          for(const auto& rr : rrset.contents) {
+            response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
+            if(type == DNSType::MX)
+              additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
+          }
+
+        }
+        else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
+          cout<<"We do have a CNAME!"<<endl;
+          const auto& rrset = iter->second;
+          dnsname target;
+          for(const auto& rr : rrset.contents) {
+            response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
+            target=dynamic_cast<CNAMEGen*>(rr.get())->d_name;
+          }
+          if(target.makeRelative(zone)) {
+            cout<<"  Should follow CNAME to "<<target<<" within our zone"<<endl;
+            // XXX we need to change our behaviour on NXDOMAIN I think depending on if you've followed a CNAME
+            searchname = target; 
+            if(CNAMELoopCount++ < 10) {
+              lastnode.clear();
+              zonecutname.clear();
+              goto loopCNAME;
+            }
+          }
+          else
+            cout<<"  CNAME points to record "<<target<<" in other zone, good luck"<<endl;
+        }
+        else {
+          cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
+          const auto& rrset = fnd->zone->rrsets[DNSType::SOA];
+          response.putRR(DNSSection::Answer, zone, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+        }
+        addAdditional(bestzone, zone, additional, response);
+      
+      }
     }
+    else {
+      cout<<"No zone matched"<<endl;
+      response.dh.rcode = (uint8_t)RCode::Refused;
+    }
+    return true;
   }
-  else {
-    cout<<"No zone matched"<<endl;
-    response.dh.rcode = (uint8_t)RCode::Refused;
+  catch(std::out_of_range& e) { // exceeded packet size
+    cout<<"Query for '"<<origname<<"'|"<<type<<" got truncated"<<endl;
+    response.setQuestion(origname, type); // this resets the packet
+    response.dh.tc=1; response.dh.aa=0;
+    return true;
   }
-  return true;
-}
-catch(std::exception& e) {
-  cout<<"Error processing query: "<<e.what()<<endl;
-  return false;
+  catch(std::exception& e) {
+    cout<<"Error processing query: "<<e.what()<<endl;
+    return false;
+  }
 }
 
 void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
@@ -246,7 +253,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     dnsname name;
     DNSType type;
     dm.getQuestion(name, type);
-    DNSMessageWriter response;
+    DNSMessageWriter response(std::numeric_limits<uint16_t>::max()-sizeof(dnsheader));
     
     if(type == DNSType::AXFR) {
       cout<<"Should do AXFR for "<<name<<endl;
@@ -281,7 +288,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
               try {
                 response.putRR(DNSSection::Answer, nname, p.first, p.second.ttl, rr);
               }
-              catch(...) { // exceeded packet size
+              catch(std::out_of_range& e) { // exceeded packet size 
                 writeTCPResponse(sock, response);
                 response.setQuestion(zone, type);
                 goto retry;
@@ -311,14 +318,9 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
   }
 }
 
-
 int main(int argc, char** argv)
 try
 {
-  cout<<sizeof(AGen)<<endl;
-  cout<<sizeof(MXGen)<<endl;
-  cout<<sizeof(RRGen)<<endl;
-
   if(argc != 2) {
     cerr<<"Syntax: tdns ipaddress:port"<<endl;
     return(EXIT_FAILURE);

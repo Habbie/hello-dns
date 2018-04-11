@@ -2,6 +2,7 @@
 #include "dns.hh"
 #include "safearray.hh"
 #include "dns-storage.hh"
+#include <vector>
 
 struct DNSMessageReader
 {
@@ -16,20 +17,63 @@ struct DNSMessageReader
 
 struct DNSMessageWriter
 {
+  explicit DNSMessageWriter(int maxsize=512)
+  {
+    payload.resize(maxsize);
+  }
   struct dnsheader dh=dnsheader{};
-  SafeArray<1500> payload;
+  std::vector<uint8_t> payload;
   void setQuestion(const dnsname& name, DNSType type);
   void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
   std::string serialize() const;
+
+  uint16_t payloadpos=0;
+  void putUInt8(uint8_t val)
+  {
+    payload.at(payloadpos++)=val;
+  }
+
+  uint16_t putUInt16(uint16_t val)
+  {
+    val = htons(val);
+    memcpy(&payload.at(payloadpos+2)-2, &val, 2);
+    payloadpos+=2;
+    return payloadpos - 2;
+  }
+
+  void putUInt16At(uint16_t pos, uint16_t val)
+  {
+    val = htons(val);
+    memcpy(&payload.at(pos+2)-2, &val, 2);
+  }
+
+  void putUInt32(uint32_t val)
+  {
+    val = htonl(val);
+    memcpy(&payload.at(payloadpos+sizeof(val)) - sizeof(val), &val, sizeof(val));
+    payloadpos += sizeof(val);
+  }
+
+  void putBlob(const std::string& blob)
+  {
+    memcpy(&payload.at(payloadpos+blob.size()) - blob.size(), blob.c_str(), blob.size());
+    payloadpos += blob.size();;
+  }
+
+  void putBlob(const unsigned char* blob, int size)
+  {
+    memcpy(&payload.at(payloadpos+size) - size, blob, size);
+    payloadpos += size;
+  }
+  void putName(const dnsname& name)
+  {
+    for(const auto& l : name) {
+      putUInt8(l.size());
+      putBlob(l.d_s);
+    }
+    putUInt8(0);
+  }
+
+  
 };
 
-inline void putName(SafeArray<1500>& payload, const dnsname& name)
-  {
-  for(const auto& l : name) {
-    if(l.size() > 63)
-      throw std::runtime_error("Can't emit a label larger than 63 characters");
-    payload.putUInt8(l.size());
-    payload.putBlob(l.d_s);
-  }
-  payload.putUInt8(0);
-}

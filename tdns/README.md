@@ -4,7 +4,7 @@
 
 # teaching DNS
 Welcome to tdns, the teaching authoritative server, implementing all of
-basic DNS in 1000 lines of code.
+basic DNS in ~~1000~~ 1100 lines of code.
 
 The goals of tdns are:
 
@@ -25,9 +25,9 @@ Features are complete:
  * Wildcards
  * Delegations
  * Glue records
+ * Truncation
 
 Missing:
- * Truncation
  * Compression (may not fit in the 1000 lines!)
  * EDNS (not 'basic' DNS by our definition, but ok)
 
