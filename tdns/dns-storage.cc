@@ -97,6 +97,12 @@ void DNSNode::visit(std::function<void(const dnsname& name, const DNSNode*)> vis
 }
 
 // this should perform escaping rules!
+std::ostream & operator<<(std::ostream &os, const dnslabel& d)
+{
+  os<<d.d_s;
+  return os;
+}
+
 std::ostream & operator<<(std::ostream &os, const dnsname& d)
 {
   for(const auto& l : d.d_name) 

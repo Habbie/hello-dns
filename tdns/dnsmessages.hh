@@ -29,7 +29,7 @@ inline void putName(SafeArray<1500>& payload, const dnsname& name)
     if(l.size() > 63)
       throw std::runtime_error("Can't emit a label larger than 63 characters");
     payload.putUInt8(l.size());
-    payload.putBlob(l);
+    payload.putBlob(l.d_s);
   }
   payload.putUInt8(0);
 }

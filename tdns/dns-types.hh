@@ -99,3 +99,15 @@ struct TXTGen : RRGen
   DNSType getType() const override { return DNSType::TXT; }
   std::string d_txt;
 };
+
+struct ClockTXTGen : RRGen
+{
+  ClockTXTGen(const std::string& format) : d_format(format) {}
+  static std::unique_ptr<RRGen> make(const std::string& format)
+  {
+    return std::make_unique<ClockTXTGen>(format);
+  }
+  void toMessage(DNSMessageWriter& dpw) override;
+  DNSType getType() const override { return DNSType::TXT; }
+  std::string d_format;
+};

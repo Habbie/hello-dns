@@ -57,3 +57,19 @@ void TXTGen::toMessage(DNSMessageWriter& dmw)
   dmw.payload.putUInt8(d_txt.length());
   dmw.payload.putBlob(d_txt);
 }
+
+void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 
+{
+  char buffer[160];
+  struct tm tm;
+  time_t now = time(0);
+  localtime_r(&now, &tm);
+  std::string txt;
+  if(strftime(buffer, sizeof(buffer), d_format.c_str(), &tm))
+    txt=buffer;
+  else
+    txt="Overflow";
+  // XXX should autosplit
+  dmw.payload.putUInt8(txt.length());
+  dmw.payload.putBlob(txt);
+}

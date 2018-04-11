@@ -29,4 +29,5 @@ void loadZones(DNSNode& zones)
   newzone->add({"ns1", "fra"})->addRRs(AGen::make("12.13.14.15"));
   newzone->add({"NS2", "fra"})->addRRs(AGen::make("12.13.14.16"), AAAAGen::make("::1"));
   newzone->add({"something"})->addRRs(AAAAGen::make("::1"), AGen::make("12.13.14.15"));
+  newzone->add({"time"})->addRRs(ClockTXTGen::make("The time is %a, %d %b %Y %T %z"));
 }

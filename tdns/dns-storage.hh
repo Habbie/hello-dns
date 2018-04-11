@@ -10,7 +10,24 @@
 #include <memory>
 #include "nenum.hh"
 
-typedef std::string dnslabel;
+class dnslabel
+{
+public:
+  dnslabel() {}
+  dnslabel(const char* s) : d_s(s) {} // XXX check length here!
+  dnslabel(const std::string& s) : d_s(s) {} // XXX check length here!
+  bool operator<(const dnslabel& rhs) const
+  {
+    return strcasecmp(d_s.c_str(), rhs.d_s.c_str()) < 0; // XXX locale pain, plus embedded zeros
+  }
+  bool operator==(const dnslabel &rhs) const
+  {
+    return strcasecmp(d_s.c_str(), rhs.d_s.c_str()) == 0; // XXX locale pain, plus embedded zeros
+  }
+  auto size() const { return d_s.size(); }
+  std::string d_s;
+};
+std::ostream & operator<<(std::ostream &os, const dnslabel& d);
 
 enum class RCode 
 {
@@ -72,19 +89,11 @@ struct RRSet
   uint32_t ttl{3600};
 };
 
-struct DNSLabelCompare: public std::binary_function<std::string, std::string, bool>
-{
-  bool operator()(const dnslabel& a, const dnslabel& b) const
-  {
-    return strcasecmp(a.c_str(), b.c_str()) < 0; // XXX locale pain, plus embedded zeros
-  }
-};
-
 struct DNSNode
 {
   const DNSNode* find(dnsname& name, dnsname& last, const DNSNode** passedZonecut=0, dnsname* zonecutname=0) const;
   DNSNode* add(dnsname name);
-  std::map<dnslabel, DNSNode, DNSLabelCompare> children;
+  std::map<dnslabel, DNSNode> children;
   std::map<DNSType, RRSet > rrsets;
 
   
