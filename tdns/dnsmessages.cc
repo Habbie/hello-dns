@@ -25,7 +25,7 @@ void DNSMessageReader::getQuestion(dnsname& name, DNSType& type)
 }
 
 
-void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGenerator>& content)
+void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
   auto cursize = payload.payloadpos;
   try {

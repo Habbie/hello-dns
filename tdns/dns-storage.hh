@@ -56,15 +56,16 @@ std::ostream & operator<<(std::ostream &os, const dnsname& d);
 dnsname operator+(const dnsname& a, const dnsname& b);
 
 struct DNSMessageWriter;
-struct RRGenerator
+struct RRGen
 {
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
+  virtual DNSType getType() const = 0;
 };
 
 struct RRSet
 {
-  std::vector<std::unique_ptr<RRGenerator>> contents;
-  void add(std::unique_ptr<RRGenerator>&& rr)
+  std::vector<std::unique_ptr<RRGen>> contents;
+  void add(std::unique_ptr<RRGen>&& rr)
   {
     contents.emplace_back(std::move(rr));
   }
@@ -85,9 +86,19 @@ struct DNSNode
   DNSNode* add(dnsname name);
   std::map<dnslabel, DNSNode, DNSLabelCompare> children;
   std::map<DNSType, RRSet > rrsets;
+
+  
+  void addRRs(std::unique_ptr<RRGen>&&a);
+
+  template<typename... Types>
+  void addRRs(std::unique_ptr<RRGen>&&a, Types&&... args)
+  {
+    addRRs(std::move(a));
+    addRRs(std::forward<Types>(args)...);
+  }
+  
   void visit(std::function<void(const dnsname& name, const DNSNode*)> visitor, dnsname name) const;
   DNSNode* zone{0}; // if this is set, this node is a zone
 };
-
 
 void loadZones(DNSNode& zones);

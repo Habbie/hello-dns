@@ -101,7 +101,7 @@ try
         vector<dnsname> toresolve;
         for(const auto& rr : rrset.contents) {
           response.putRR(DNSSection::Authority, zonecutname+zone, DNSType::NS, rrset.ttl, rr);
-          toresolve.push_back(dynamic_cast<NameGenerator*>(rr.get())->d_name);
+          toresolve.push_back(dynamic_cast<NSGen*>(rr.get())->d_name);
         }
 
         addAdditional(bestzone, zone, toresolve, response);
@@ -124,7 +124,7 @@ try
           for(const auto& rr : rrset.contents) {
             response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
             if(t.first == DNSType::MX)
-              additional.push_back(dynamic_cast<MXGenerator*>(rr.get())->d_name);
+              additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
 
           }
         }
@@ -134,7 +134,7 @@ try
         for(const auto& rr : rrset.contents) {
           response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
           if(type == DNSType::MX)
-            additional.push_back(dynamic_cast<MXGenerator*>(rr.get())->d_name);
+            additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
         }
 
       }
@@ -144,7 +144,7 @@ try
         dnsname target;
         for(const auto& rr : rrset.contents) {
           response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
-          target=dynamic_cast<NameGenerator*>(rr.get())->d_name;
+          target=dynamic_cast<CNAMEGen*>(rr.get())->d_name;
         }
         if(target.makeRelative(zone)) {
           cout<<"  Should follow CNAME to "<<target<<" within our zone"<<endl;
@@ -315,6 +315,10 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
 int main(int argc, char** argv)
 try
 {
+  cout<<sizeof(AGen)<<endl;
+  cout<<sizeof(MXGen)<<endl;
+  cout<<sizeof(RRGen)<<endl;
+
   if(argc != 2) {
     cerr<<"Syntax: tdns ipaddress:port"<<endl;
     return(EXIT_FAILURE);

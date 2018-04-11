@@ -103,3 +103,8 @@ std::ostream & operator<<(std::ostream &os, const dnsname& d)
     os<<l<<".";
   return os;
 }
+
+void DNSNode::addRRs(std::unique_ptr<RRGen>&&a)
+{
+  rrsets[a->getType()].add(std::move(a));
+}
