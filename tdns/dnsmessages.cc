@@ -1,5 +1,5 @@
 #include "dnsmessages.hh"
-#include "dns-types.hh"
+#include "record-types.hh"
 
 using namespace std;
 

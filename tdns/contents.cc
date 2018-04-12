@@ -1,5 +1,5 @@
 #include "dns-storage.hh"
-#include "dns-types.hh"
+#include "record-types.hh"
 
 void loadZones(DNSNode& zones)
 {

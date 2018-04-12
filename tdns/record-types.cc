@@ -1,4 +1,4 @@
-#include "dns-types.hh"
+#include "record-types.hh"
 
 std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
 {

@@ -11,7 +11,7 @@
 #include "safearray.hh"
 #include <thread>
 #include <signal.h>
-#include "dns-types.hh"
+#include "record-types.hh"
 #include "dns-storage.hh"
 
 using namespace std;
