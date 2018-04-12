@@ -9,8 +9,8 @@ struct DNSMessageReader
   struct dnsheader dh=dnsheader{};
   SafeArray<500> payload;
 
-  dnsname getName();
-  void getQuestion(dnsname& name, DNSType& type);
+  DNSName getName();
+  void getQuestion(DNSName& name, DNSType& type);
   bool getEDNS(uint16_t* newsize, bool* doBit);  
   std::string serialize() const;
 }; 
@@ -26,8 +26,8 @@ struct DNSMessageWriter
     payload.resize(maxsize);
   }
   
-  void setQuestion(const dnsname& name, DNSType type);
-  void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
+  void setQuestion(const DNSName& name, DNSType type);
+  void putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
   void putEDNS(uint16_t bufsize, bool doBit);
   std::string serialize() const;
 
@@ -68,7 +68,7 @@ struct DNSMessageWriter
     memcpy(&payload.at(payloadpos+size) - size, blob, size);
     payloadpos += size;
   }
-  void putName(const dnsname& name)
+  void putName(const DNSName& name)
   {
     for(const auto& l : name) {
       putUInt8(l.size());

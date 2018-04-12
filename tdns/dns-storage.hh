@@ -10,21 +10,21 @@
 #include <memory>
 #include "nenum.hh"
 
-class dnslabel
+class DNSLabel
 {
 public:
-  dnslabel() {}
-  dnslabel(const char* s) : dnslabel(std::string(s)) {} 
-  dnslabel(const std::string& s) : d_s(s)
+  DNSLabel() {}
+  DNSLabel(const char* s) : DNSLabel(std::string(s)) {} 
+  DNSLabel(const std::string& s) : d_s(s)
   {
     if(d_s.size() > 63)
       throw std::out_of_range("label too long");
   }
-  bool operator<(const dnslabel& rhs) const
+  bool operator<(const DNSLabel& rhs) const
   {
     return std::lexicographical_compare(d_s.begin(), d_s.end(), rhs.d_s.begin(), rhs.d_s.end(), charcomp);
   }
-  bool operator==(const dnslabel &rhs) const
+  bool operator==(const DNSLabel &rhs) const
   {
     return !(*this < rhs) && !(rhs<*this);
   }
@@ -40,7 +40,7 @@ private:
     return a < b;
   }
 };
-std::ostream & operator<<(std::ostream &os, const dnslabel& d);
+std::ostream & operator<<(std::ostream &os, const DNSLabel& d);
 
 enum class RCode 
 {
@@ -63,27 +63,27 @@ SMARTENUMEND(DNSType)
 
 COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3)
 
-struct dnsname
+struct DNSName
 {
-  dnsname() {}
-  dnsname(std::initializer_list<dnslabel> dls) : d_name(dls) {}
-  void push_back(const dnslabel& l) { d_name.push_back(l); }
+  DNSName() {}
+  DNSName(std::initializer_list<DNSLabel> dls) : d_name(dls) {}
+  void push_back(const DNSLabel& l) { d_name.push_back(l); }
   auto back() const { return d_name.back(); }
   auto begin() const { return d_name.begin(); }
   bool empty() const { return d_name.empty(); }
   auto end() const { return d_name.end(); }
   auto front() const { return d_name.front(); }
   void pop_back() { d_name.pop_back(); }
-  auto push_front(const dnslabel& dn) { return d_name.push_front(dn); }
+  auto push_front(const DNSLabel& dn) { return d_name.push_front(dn); }
   auto size() { return d_name.size(); }
   void clear() { d_name.clear(); }
-  bool makeRelative(const dnsname& root);
+  bool makeRelative(const DNSName& root);
   
-  std::deque<dnslabel> d_name;
+  std::deque<DNSLabel> d_name;
 };
 
-std::ostream & operator<<(std::ostream &os, const dnsname& d);
-dnsname operator+(const dnsname& a, const dnsname& b);
+std::ostream & operator<<(std::ostream &os, const DNSName& d);
+DNSName operator+(const DNSName& a, const DNSName& b);
 
 struct DNSMessageWriter;
 struct RRGen
@@ -104,9 +104,9 @@ struct RRSet
 
 struct DNSNode
 {
-  const DNSNode* find(dnsname& name, dnsname& last, const DNSNode** passedZonecut=0, dnsname* zonecutname=0) const;
-  DNSNode* add(dnsname name);
-  std::map<dnslabel, DNSNode> children;
+  const DNSNode* find(DNSName& name, DNSName& last, const DNSNode** passedZonecut=0, DNSName* zonecutname=0) const;
+  DNSNode* add(DNSName name);
+  std::map<DNSLabel, DNSNode> children;
   std::map<DNSType, RRSet > rrsets;
 
   
@@ -119,7 +119,7 @@ struct DNSNode
     addRRs(std::forward<Types>(args)...);
   }
   
-  void visit(std::function<void(const dnsname& name, const DNSNode*)> visitor, dnsname name) const;
+  void visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const;
   DNSNode* zone{0}; // if this is set, this node is a zone
 };
 

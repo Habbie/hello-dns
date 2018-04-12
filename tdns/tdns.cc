@@ -16,7 +16,7 @@
 
 using namespace std;
 
-void addAdditional(const DNSNode* bestzone, const dnsname& zone, const vector<dnsname>& toresolve, DNSMessageWriter& response)
+void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response)
 {
   for(auto addname : toresolve ) {
     cout<<"Doing additional or glue lookup for "<<addname<<" in "<<zone<<endl;
@@ -24,7 +24,7 @@ void addAdditional(const DNSNode* bestzone, const dnsname& zone, const vector<dn
       cout<<addname<<" is not within our zone, not doing glue"<<endl;
       continue;
     }
-    dnsname wuh;
+    DNSName wuh;
     auto addnode = bestzone->find(addname, wuh);
     if(!addnode || !addname.empty())  {
       cout<<"  Found nothing, continuing"<<endl;
@@ -44,10 +44,10 @@ void addAdditional(const DNSNode* bestzone, const dnsname& zone, const vector<dn
 
 bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessageWriter& response)
 {
-  dnsname name;
+  DNSName name;
   DNSType type;
   dm.getQuestion(name, type);
-  dnsname origname=name; // we need this for error reporting, we munch the original name
+  DNSName origname=name; // we need this for error reporting, we munch the original name
   bool haveEDNS=false;
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<type<<endl;
   uint16_t newsize=0;
@@ -74,7 +74,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       return true;
     }
     
-    dnsname zone;
+    DNSName zone;
     auto fnd = zones.find(name, zone);
     if(fnd && fnd->zone) {
       cout<<"---\nBest zone: "<<zone<<", name now "<<name<<", loaded: "<<(void*)fnd->zone<<endl;
@@ -82,7 +82,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       response.dh.aa = 1; 
     
       auto bestzone = fnd->zone;
-      dnsname searchname(name), lastnode, zonecutname;
+      DNSName searchname(name), lastnode, zonecutname;
       const DNSNode* passedZonecut=0;
       int CNAMELoopCount = 0;
     
@@ -102,7 +102,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         auto iter = passedZonecut->rrsets.find(DNSType::NS);
         if(iter != passedZonecut->rrsets.end()) {
           const auto& rrset = iter->second;
-          vector<dnsname> toresolve;
+          vector<DNSName> toresolve;
           for(const auto& rr : rrset.contents) {
             response.putRR(DNSSection::Authority, zonecutname+zone, DNSType::NS, rrset.ttl, rr);
             toresolve.push_back(dynamic_cast<NSGen*>(rr.get())->d_name);
@@ -120,11 +120,11 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         cout<<"Found something in zone '"<<zone<<"' for lhs '"<<name<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
       
         auto iter = node->rrsets.cbegin();
-        vector<dnsname> additional;
+        vector<DNSName> additional;
         if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
           cout<<"We have a CNAME!"<<endl;
           const auto& rrset = iter->second;
-          dnsname target;
+          DNSName target;
           for(const auto& rr : rrset.contents) {
             response.putRR(DNSSection::Answer, lastnode+zone, DNSType::CNAME, rrset.ttl, rr);
             target=dynamic_cast<CNAMEGen*>(rr.get())->d_name;
@@ -261,7 +261,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       return;
     }
 
-    dnsname name;
+    DNSName name;
     DNSType type;
     dm.getQuestion(name, type);
     DNSMessageWriter response(std::numeric_limits<uint16_t>::max()-sizeof(dnsheader));
@@ -269,7 +269,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     if(type == DNSType::AXFR) {
       cout<<"Should do AXFR for "<<name<<endl;
 
-      dnsname zone;
+      DNSName zone;
       auto fnd = zones->find(name, zone);
       if(!fnd || !fnd->zone || !name.empty() || !fnd->zone->rrsets.count(DNSType::SOA)) {
         cout<<"   This was not a zone, or zone had no SOA"<<endl;
@@ -290,7 +290,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       response.setQuestion(zone, type);
 
       // send all other records
-      node->visit([&response,&sock,&name,&type,&zone](const dnsname& nname, const DNSNode* n) {
+      node->visit([&response,&sock,&name,&type,&zone](const DNSName& nname, const DNSNode* n) {
           for(const auto& p : n->rrsets) {
             if(p.first == DNSType::SOA)
               continue;

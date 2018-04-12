@@ -3,22 +3,22 @@
 
 using namespace std;
 
-dnsname DNSMessageReader::getName()
+DNSName DNSMessageReader::getName()
 {
-  dnsname name;
+  DNSName name;
   for(;;) {
     uint8_t labellen=payload.getUInt8();
     if(labellen > 63)
       throw std::runtime_error("Got a compressed label");
-    if(!labellen) // end of dnsname
+    if(!labellen) // end of DNSName
       break;
-    dnslabel label = payload.getBlob(labellen);
+    DNSLabel label = payload.getBlob(labellen);
     name.push_back(label);
   }
   return name;
 }
 
-void DNSMessageReader::getQuestion(dnsname& name, DNSType& type)
+void DNSMessageReader::getQuestion(DNSName& name, DNSType& type)
 {
   name=getName();
   type=(DNSType)payload.getUInt16();
@@ -42,7 +42,7 @@ bool DNSMessageReader::getEDNS(uint16_t* newsize, bool* doBit)
   return false;
 }
 
-void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
+void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
   auto cursize = payloadpos;
   try {
@@ -87,7 +87,7 @@ void DNSMessageWriter::putEDNS(uint16_t bufsize, bool doBit)
   dh.nscount = htons(ntohs(dh.nscount)+1);
 }
 
-void DNSMessageWriter::setQuestion(const dnsname& name, DNSType type)
+void DNSMessageWriter::setQuestion(const DNSName& name, DNSType type)
 {
   dh.ancount = dh.arcount = dh.nscount = 0;
   payloadpos=0;

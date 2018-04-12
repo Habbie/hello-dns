@@ -1,7 +1,7 @@
 #include "dns-storage.hh"
 using namespace std;
 
-bool dnsname::makeRelative(const dnsname& root)
+bool DNSName::makeRelative(const DNSName& root)
 {
   auto us = d_name, them=root.d_name;
   while(!them.empty()) {
@@ -18,7 +18,7 @@ bool dnsname::makeRelative(const dnsname& root)
   return true;
 }
 
-const DNSNode* DNSNode::find(dnsname& name, dnsname& last, const DNSNode** passedZonecut, dnsname* zonecutname) const
+const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passedZonecut, DNSName* zonecutname) const
 {
   cout<<"find for '"<<name<<"', last is now '"<<last<<"'"<<endl;
   if(!last.empty() && rrsets.count(DNSType::NS)) {
@@ -62,7 +62,7 @@ const DNSNode* DNSNode::find(dnsname& name, dnsname& last, const DNSNode** passe
   return iter->second.find(name, last, passedZonecut, zonecutname);
 }
 
-DNSNode* DNSNode::add(dnsname name) 
+DNSNode* DNSNode::add(DNSName name) 
 {
   cout<<"Add called for '"<<name<<"'"<<endl;
   if(name.size() == 1) {
@@ -85,29 +85,29 @@ DNSNode* DNSNode::add(dnsname name)
   return iter->second.add(name);
 }
 
-dnsname operator+(const dnsname& a, const dnsname& b)
+DNSName operator+(const DNSName& a, const DNSName& b)
 {
-  dnsname ret=a;
+  DNSName ret=a;
   for(const auto& l : b.d_name)
     ret.d_name.push_back(l);
   return ret;
 }
 
-void DNSNode::visit(std::function<void(const dnsname& name, const DNSNode*)> visitor, dnsname name) const
+void DNSNode::visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const
 {
   visitor(name, this);
   for(const auto& c : children)
-    c.second.visit(visitor, dnsname{c.first}+name);
+    c.second.visit(visitor, DNSName{c.first}+name);
 }
 
 // this should perform escaping rules!
-std::ostream & operator<<(std::ostream &os, const dnslabel& d)
+std::ostream & operator<<(std::ostream &os, const DNSLabel& d)
 {
   os<<d.d_s;
   return os;
 }
 
-std::ostream & operator<<(std::ostream &os, const dnsname& d)
+std::ostream & operator<<(std::ostream &os, const DNSName& d)
 {
   for(const auto& l : d.d_name) 
     os<<l<<".";
