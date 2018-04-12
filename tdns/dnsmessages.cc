@@ -25,6 +25,23 @@ void DNSMessageReader::getQuestion(dnsname& name, DNSType& type)
   payload.getUInt16(); // skip the class
 }
 
+bool DNSMessageReader::getEDNS(uint16_t* newsize, bool* doBit)
+{
+  if(dh.arcount) {
+    if(payload.getUInt8() == 0 && payload.getUInt16() == (uint16_t)DNSType::OPT) {
+      *newsize=payload.getUInt16();
+      payload.getUInt16(); // extended RCODE, EDNS version
+      auto flags = payload.getUInt8();
+      *doBit = flags & 0x80;
+      payload.getUInt8(); payload.getUInt16(); // ignore rest
+      cout<<"   There was an EDNS section, size supported: "<<newsize<<endl;
+      return true;
+      
+    }
+  }
+  return false;
+}
+
 void DNSMessageWriter::putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
   auto cursize = payloadpos;

@@ -66,7 +66,11 @@ DNSNode* DNSNode::add(dnsname name)
 {
   cout<<"Add called for '"<<name<<"'"<<endl;
   if(name.size() == 1) {
-    cout<<"  Last label, possibly addding, already present="<<children.count(name.front())<<endl;
+    cout<<"  Last label, done with add. ";
+    if(children.count(name.front()))
+      cout<<"Label was present already"<<endl;
+    else
+      cout<<"Added label as new child"<<endl;
     return &children[name.front()];
   }
 

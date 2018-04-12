@@ -52,20 +52,10 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<name<<" and type "<<type<<endl;
   uint16_t newsize=0;
   bool doBit=false;
-  if(dm.dh.arcount) {
-    if(dm.payload.getUInt8() == 0 && dm.payload.getUInt16() == (uint16_t)DNSType::OPT) {
-      haveEDNS=true;
-      newsize=dm.payload.getUInt16();
-      dm.payload.getUInt16(); // extended RCODE, EDNS version
-      auto flags = dm.payload.getUInt8();
-      doBit = flags & 0x80;
-      dm.payload.getUInt8(); dm.payload.getUInt16(); // ignore rest
-      cout<<"   There was an EDNS section, size supported: "<<newsize<<endl;
-      if(newsize > sizeof(dnsheader))
-        response.payload.resize(newsize - sizeof(dnsheader));
-      
-    }
-  }
+  haveEDNS = dm.getEDNS(&newsize, &doBit);
+  if(haveEDNS && newsize > sizeof(dnsheader))
+    response.payload.resize(newsize - sizeof(dnsheader));
+
   try {
     response.dh = dm.dh;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
@@ -131,28 +121,8 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       
         auto iter = node->rrsets.cbegin();
         vector<dnsname> additional;
-        if(type == DNSType::ANY) {
-          for(const auto& t : node->rrsets) {
-            const auto& rrset = t.second;
-            for(const auto& rr : rrset.contents) {
-              response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
-              if(t.first == DNSType::MX)
-                additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
-
-            }
-          }
-        }
-        else if(iter = node->rrsets.find(type), iter != node->rrsets.end()) {
-          const auto& rrset = iter->second;
-          for(const auto& rr : rrset.contents) {
-            response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
-            if(type == DNSType::MX)
-              additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
-          }
-
-        }
-        else if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
-          cout<<"We do have a CNAME!"<<endl;
+        if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
+          cout<<"We have a CNAME!"<<endl;
           const auto& rrset = iter->second;
           dnsname target;
           for(const auto& rr : rrset.contents) {
@@ -171,6 +141,25 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
           }
           else
             cout<<"  CNAME points to record "<<target<<" in other zone, good luck"<<endl;
+        }
+        else if(type == DNSType::ANY) {
+          for(const auto& t : node->rrsets) {
+            const auto& rrset = t.second;
+            for(const auto& rr : rrset.contents) {
+              response.putRR(DNSSection::Answer, lastnode+zone, t.first, rrset.ttl, rr);
+              if(t.first == DNSType::MX)
+                additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
+
+            }
+          }
+        }
+        else if(iter = node->rrsets.find(type), iter != node->rrsets.end() || type==DNSType::ANY) {
+          const auto& rrset = iter->second;
+          for(const auto& rr : rrset.contents) {
+            response.putRR(DNSSection::Answer, lastnode+zone, type, rrset.ttl, rr);
+            if(type == DNSType::MX)
+              additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
+          }
         }
         else {
           cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;

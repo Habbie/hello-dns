@@ -11,7 +11,7 @@ struct DNSMessageReader
 
   dnsname getName();
   void getQuestion(dnsname& name, DNSType& type);
-  
+  bool getEDNS(uint16_t* newsize, bool* doBit);  
   std::string serialize() const;
 }; 
 
