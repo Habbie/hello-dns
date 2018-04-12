@@ -17,19 +17,20 @@ struct DNSMessageReader
 
 struct DNSMessageWriter
 {
-  explicit DNSMessageWriter(int maxsize=512)
+  struct dnsheader dh=dnsheader{};
+  std::vector<uint8_t> payload;
+  uint16_t payloadpos=0;
+
+  explicit DNSMessageWriter(int maxsize=500)
   {
     payload.resize(maxsize);
   }
-  struct dnsheader dh=dnsheader{};
-  std::vector<uint8_t> payload;
+  
   void setQuestion(const dnsname& name, DNSType type);
   void putRR(DNSSection section, const dnsname& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
-
   void putEDNS(uint16_t bufsize, bool doBit);
   std::string serialize() const;
 
-  uint16_t payloadpos=0;
   void putUInt8(uint8_t val)
   {
     payload.at(payloadpos++)=val;
@@ -75,7 +76,5 @@ struct DNSMessageWriter
     }
     putUInt8(0);
   }
-
-  
 };
 

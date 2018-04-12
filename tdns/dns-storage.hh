@@ -15,7 +15,11 @@ class dnslabel
 public:
   dnslabel() {}
   dnslabel(const char* s) : dnslabel(std::string(s)) {} 
-  dnslabel(const std::string& s) : d_s(s) {} // XXX check length here!
+  dnslabel(const std::string& s) : d_s(s)
+  {
+    if(d_s.size() > 63)
+      throw std::out_of_range("label too long");
+  }
   bool operator<(const dnslabel& rhs) const
   {
     return std::lexicographical_compare(d_s.begin(), d_s.end(), rhs.d_s.begin(), rhs.d_s.end(), charcomp);
@@ -35,7 +39,6 @@ private:
       b -= 0x20;
     return a < b;
   }
-
 };
 std::ostream & operator<<(std::ostream &os, const dnslabel& d);
 
