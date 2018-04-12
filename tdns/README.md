@@ -59,8 +59,7 @@ The core or `tdns` therefore is the tree of nodes as intended in 1034,
 containing DNS native objects like DNS Labels and DNS Names.
 
 # Objects
-## DNS Objects
-### DNSLabel
+## DNSLabel
 The most basic object in `tdns` is DNSLabel. `www.powerdns.com` consists of
 three labels, `www`, `powerdns` and `com`. DNS is fundamentally case
 insensitive (in its own unique way), and so is DNSLabel. So for example:
@@ -81,7 +80,7 @@ needs to be converted for screen display or entry, escaping rules apply. The
 only place in a nameserver where these escaping rules should be enabled is
 in the parsing of DNS Labels.
 
-### DNSName
+## DNSName
 A sequence of DNS Labels makes a DNS name. We store such a sequence as a
 `DNSName`. To make this safe, even in the face of embedded dots, spaces and
 other things, within `tdns` we make no effort to parse `www.powerdns.com` in
@@ -97,7 +96,7 @@ the code. Instead, use this:
 
 ```
 
-### DNSType, RCode, DNSSection
+## DNSType, RCode, DNSSection
 This is an enum that contains the names and numerical values of the DNS
 types. This means for example that `DNSType::A` corresponds to 1 and
 `DNSType::SOA` to 6.
@@ -226,8 +225,7 @@ To clarify this further, a lookup for `ns1.ord.ietf.org` would end up with:
 
  * `searchname` empty: all labels of `ns1.ord.ietf.org` were matched
  * `lastname` is then `ns1.ord.ietf.org`
- * `passedZonecut` again points to the `{"ietf", "org"}` node, which has the  
- NS RRSet that describes the delegation
+ * `passedZonecut` again points to the `{"ietf", "org"}` node, which has the NS RRSet that describes the delegation
  * `zonecutname` is set to `{"ietf", "org"}`.
 
 The DNS Tree is aware of `*` semantics, and when traversing nodes and not
@@ -297,6 +295,12 @@ put the generator in the right RRSet place.
 
 13 to 17 show the construction of the actual DNS resource record in a
 packet: the 16 bit priority, followed by the name.
+
+# The RFC 1034 algorithm
+
+# DNSMessageWriter
+
+# DNSMessageReader
 
 <script>
 window.markdeepOptions={};
