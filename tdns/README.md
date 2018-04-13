@@ -420,7 +420,7 @@ passed any NS records along the way.
 ```
 1	if(passedZonecut) {
 2		response.dh.aa = false;
-3		cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
+3		cout<<"This is a delegation, zonecutname: '" << zonecutname << "'" << endl;
 4		auto iter = passedZonecut->rrsets.find(DNSType::NS);
 5		if(iter != passedZonecut->rrsets.end()) {
 6			const auto& rrset = iter->second;
