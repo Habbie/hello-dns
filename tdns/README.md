@@ -671,14 +671,12 @@ to do pointer arithmetic. For security purposes, `DNSMessageReader` uses
 bounds checking access methods exclusively.
 
 ## DNSMessageWriter
-This class creates DNS messages. It has a method for setting the `qname` and
-`qtype` of the message. If called, this also resets the message to its
-original state. Packets are only written in order. So it is not possible to
-change the `qname` after adding a resource record. This is why the state
-resets on calling `setQuestion()`. 
+This class creates DNS messages, and in its constructor it needs to know the
+name and type it is creating a message for.
 
-Note: this should probably move to the constructor so it becomes impossible
-to do it wrong.
+Packets are only written in order. So it is not possible to
+change the `qname` after adding a resource record. Resource records must
+also be added together as RRSets, and in 'section order'.
 
 Internally `DNSMessageWriter` again only uses bounds checked methods for
 modifying its state.
