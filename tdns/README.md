@@ -6,7 +6,8 @@ Note: this page is part of the
 
 # teaching DNS
 Welcome to tdns, the teaching authoritative server, implementing all of
-[basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of code.
+[basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of code. Code is
+[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns). 
 
 The goals of tdns are:
 
@@ -43,8 +44,9 @@ Known broken:
  * ~~On output (to screen) we do not escape DNS names correctly~~
  * TCP/IP does not follow recommended timeouts
 
-The code is not yet in a teachable state, and the layout is somewhat
-confusing: some stuff is in the wrong files.
+The code is not quite in a teachable state and still contains ugly bits. But
+well worth [a
+read](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).
 
 # Layout
 Key to a good DNS implementation is having a faithful DNS storage model,
