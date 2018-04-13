@@ -8,7 +8,8 @@ Note: this page is part of the
 Welcome to tdns, a 'from scratch' teaching authoritative server,
 implementing all of [basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of
 code.  Code is
-[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).
+[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns). To
+compile, see the end of this document.
 
 Even though the 'hello-dns' documents describe how basic DNS works, and how
 an authoritative server should function, nothing quite says how to do things
@@ -719,6 +720,10 @@ $ ./tdns [::1]:5300 &
 $ dig -t any time.powerdns.org @::1 -p 5300 +short 
 time.powerdns.org.	3600	IN	TXT	"The time is Fri, 13 Apr 2018 12:55:54 +0200"
 ```
+
+For now, building requires the Boost headers, because of the Simplesocket
+dependency.
+
 <script>
 window.markdeepOptions={};
 window.markdeepOptions.tocStyle = "long";
