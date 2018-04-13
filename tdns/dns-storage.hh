@@ -84,7 +84,10 @@ struct DNSName
   auto size() { return d_name.size(); }
   void clear() { d_name.clear(); }
   bool makeRelative(const DNSName& root);
-  
+  bool operator==(const DNSName& rhs) const
+  {
+    return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end())==0;
+  }
   std::deque<DNSLabel> d_name;
 };
 

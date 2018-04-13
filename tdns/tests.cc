@@ -28,3 +28,15 @@ TEST_CASE( "DNSName escaping", "[escapes]" ) {
   str<<test2;
   REQUIRE(str.str() == "p\\000werdns.com.");
 };
+
+TEST_CASE("DNSName operations", "[dnsname]") {
+  DNSName test({"www", "powerdns", "org"}), test2;
+  test2 = test;
+
+  REQUIRE(test2 == test);
+  test.pop_back();
+  REQUIRE(test == DNSName({"www", "powerdns"}));
+
+  REQUIRE(test2.makeRelative({"org"}));
+  REQUIRE(test2 == DNSName({"www", "powerdns"}));
+}
