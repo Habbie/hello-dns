@@ -53,7 +53,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<qname<<" and type "<<qtype<<endl;
 
   try {
-    response.dh.id = dm.dh.id;
+    response.dh.id = dm.dh.id; response.dh.rd = dm.dh.rd;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
     response.dh.qr = 1;
     uint16_t newsize; bool doBit;
