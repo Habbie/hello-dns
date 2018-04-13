@@ -5,13 +5,22 @@ Note: this page is part of the
 '[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
 # teaching DNS
-Welcome to tdns, the teaching authoritative server, implementing all of
-[basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of code. Code is
-[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns). 
+Welcome to tdns, a 'from scratch' teaching authoritative server,
+implementing all of [basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of
+code.  Code is
+[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).
+
+Even though the 'hello-dns' documents describe how basic DNS works, and how
+an authoritative server should function, nothing quite says how to do things
+like actual running code.  `tdns` is small enough to read in one sitting and
+shows how DNS packets are parsed and generated.  `tdns` is currently written
+in C++, and is MIT licensed.  Reimplementations in other languages are
+highly welcome, as these may be more accessible to other programmers.
 
 The goals of tdns are:
 
- * Protocol correctness
+ * Showing the DNS algorithms 'in code'
+ * Protocol correctness, except where the protocol needs updating
  * Suitable for educational purposes
  * Display best practices, both in DNS and security
 
@@ -36,6 +45,7 @@ As a bonus:
 
 Missing:
  * DNS Compression (may not fit in, say, 1200 lines!)
+ * SRV and NAPTR would be nice
 
 Known broken:
  * ~~Embedded 0s in DNS labels don't yet work~~
@@ -43,6 +53,7 @@ Known broken:
  * ~~RCode after one CNAME chase~~
  * ~~On output (to screen) we do not escape DNS names correctly~~
  * TCP/IP does not follow recommended timeouts
+ * EDNS is a bit clunky and should move into DNSMessageWriter
 
 The code is not quite in a teachable state and still contains ugly bits. But
 well worth [a
