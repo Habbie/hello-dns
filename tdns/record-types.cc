@@ -2,7 +2,7 @@
 
 std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
 {
-  return std::make_unique<AGen>(ca.sin4.sin_addr.s_addr);
+  return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
 }
 
 void AGen::toMessage(DNSMessageWriter& dmw)
