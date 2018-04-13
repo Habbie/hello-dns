@@ -168,7 +168,7 @@ The DNS Tree is of fundamental importance, and is used a number of times
 within `tdns`.
 
 When storing the contents of the `org` zone, it may look like this:
-
+```
 *************************************************************************************************
 *                                                                                               *
 *                                   .---.                                                       *
@@ -189,6 +189,7 @@ When storing the contents of the `org` zone, it may look like this:
 *               '-+-'    '---'                                                                  *                   
 *                                                                                               *
 *************************************************************************************************
+```
 
 This tree has a depth of four. The top node has an empty name, and is
 relative to the name of the zone, in this case `org`.
