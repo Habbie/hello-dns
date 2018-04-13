@@ -1,14 +1,14 @@
 CXXFLAGS:=-std=gnu++14 -Wall -O2 -MMD -MP -ggdb -Iext/simplesocket -Iext/catch -pthread
 
-PROGRAMS = tdns testrunner
+PROGRAMS = tdns
 
 all: $(PROGRAMS)
 
 clean:
 	rm -f *~ *.o *.d test $(PROGRAMS)
 
-#check: mtests
-#	./mtests
+check: testrunner
+	./testrunner
 
 -include *.d
 
