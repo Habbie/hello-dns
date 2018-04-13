@@ -108,7 +108,6 @@ struct DNSNode
   DNSNode* add(DNSName name);
   std::map<DNSLabel, DNSNode> children;
   std::map<DNSType, RRSet > rrsets;
-
   
   void addRRs(std::unique_ptr<RRGen>&&a);
 

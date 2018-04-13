@@ -1,23 +1,26 @@
                 <meta charset="utf-8" emacsmode="-*- markdown -*-">
                             **A warm welcome to DNS**
-<link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">
+<!--<link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">-->
+Note: this page is part of the
+'[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
 # teaching DNS
 Welcome to tdns, the teaching authoritative server, implementing all of
-basic DNS in ~~1000~~ 1100 lines of code.
+[basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of code.
 
 The goals of tdns are:
 
  * Protocol correctness
  * Suitable for educational purposes
- * Display best practices
+ * Display best practices, both in DNS and security
 
 Non-goals are:
+
  * Performance
- * Implementing more features
+ * Implementing more features (unless very educational)
 
 # Current status
-Features are complete:
+All 'basic DNS' items are implemented.
 
  * A, AAAA, NS, MX, CNAME, TXT, SOA
  * UDP & TCP
@@ -26,16 +29,18 @@ Features are complete:
  * Delegations
  * Glue records
  * Truncation
+
+As a bonus:
  * EDNS (buffer size, no options)
 
 Missing:
- * Compression (may not fit in the 1200 lines!)
+ * DNS Compression (may not fit in, say, 1200 lines!)
 
 Known broken:
  * ~~Embedded 0s in DNS labels don't yet work~~
  * ~~Case-insensitive comparison isn't 100% correct~~
- * RCode after one CNAME chase
- * On output (to screen) we do not escape DNS names correctly
+ * ~~RCode after one CNAME chase~~
+ * ~~On output (to screen) we do not escape DNS names correctly~~
  * TCP/IP does not follow recommended timeouts
 
 The code is not yet in a teachable state, and the layout is somewhat
@@ -78,7 +83,15 @@ of this right.
 When DNS labels contain spaces or other non-ascii characters, and a label
 needs to be converted for screen display or entry, escaping rules apply. The
 only place in a nameserver where these escaping rules should be enabled is
-in the parsing of DNS Labels.
+in the parsing or printing of DNS Labels.
+
+The input to a `DNSLabel` is an unescaped binary string. The escaping
+example from RFC 4343 thus works like this:
+
+```
+	DNSLabel dl("Donald E. Eastlake 3rd");
+	cout << dl << endl; // prints: Donald\032E\.\032Eastlake\0323rd
+```
 
 ## DNSName
 A sequence of DNS Labels makes a DNS name. We store such a sequence as a
@@ -96,6 +109,19 @@ the code. Instead, use this:
 
 ```
 
+Since a `DNSName` consists of `DNSLabel`s, it gets the same escaping. To
+again emphasise how we interpret the input as binary, ponder:
+
+```
+	DNSName test({"powerdns", "com."});
+	cout << test << endl; // prints: powerdns.com\..
+
+	const char zero[]="p\x0werdns";
+	DNSName test2({std::string(zero, sizeof(zero)-1), "com"});
+
+	cout << test2 << endl; // prints: p\000werdns.com.
+```
+
 ## DNSType, RCode, DNSSection
 This is an enum that contains the names and numerical values of the DNS
 types. This means for example that `DNSType::A` corresponds to 1 and
@@ -107,6 +133,7 @@ the printing of `DNSTypes` as symbolic names. Sample:
 ```
 	DNSType a = DNSType::CNAME;
 	cout << a << "\n";    // prints: CNAME
+
 	a = (DNSType) 6;
 	cout << a <<" is "<< (int)a << "\n"; // prints: SOA is 6
 ```
@@ -297,6 +324,186 @@ put the generator in the right RRSet place.
 packet: the 16 bit priority, followed by the name.
 
 # The RFC 1034 algorithm
+As noted in the [basic DNS](../basic.md.html) and
+[authoritative](../auth.md.html) pages, the RFC 1034
+algorithm can be simplified for a pure authoritative server.
+
+
+## Finding the right zone and node
+In tdns.cc, processing starts like this:
+
+```
+1	DNSName zonename;
+2	auto fnd = zones.find(qname, zonename);
+3	...
+4	response.dh.aa = 1; 
+5    
+6	auto bestzone = fnd->zone;
+7	DNSName searchname(qname), lastnode, zonecutname;
+8	const DNSNode* passedZonecut=0;
+9	auto node = bestzone->find(searchname, lastnode, &passedZonecut, &zonecutname);
+```
+
+In line 1 we declare the DNSName where we will store the name of the
+matching zone. On line 2 we look up the query name, and get the node
+containing the zone, plus its name.
+
+Line 3 elides error response if no zone was found. In line 4 we declare we
+have authority. Line 6 saves some typing later on.
+
+Lines 7 and 8 declare what we are looking for, and reserves names for where
+we store what we found.
+
+Line 9 finally calls `find` to find the best node within our zone. As noted
+above, `find` not only finds the best node, but also lets us know if we
+passed any NS records along the way.
+
+## If we passed a zone cut
+
+```
+1	if(passedZonecut) {
+2		response.dh.aa = false;
+3		cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
+4		auto iter = passedZonecut->rrsets.find(DNSType::NS);
+5		if(iter != passedZonecut->rrsets.end()) {
+6			const auto& rrset = iter->second;
+7			vector< DNSName > toresolve;
+8			for(const auto& rr : rrset.contents) {
+9				response.putRR(DNSSection::Authority, zonecutname+zonename, DNSType::NS, rrset.ttl, rr);
+10				toresolve.push_back(dynamic_cast< NSGen* >(rr.get())->d_name);
+11			}
+12			addAdditional(bestzone, zonename, toresolve, response);
+13		}
+14	}
+```
+
+This is the first thing we check: did we pass a zone cut? If so, on line 2
+we drop the aa bit, since we clearly are not providing an authoritative
+answer.
+
+Lines 4 and 5 lookup and verify if there is actually an NS record at the
+zone cut. This should always be true. 
+
+In line 7 we store room for the NS server names we will need to look up
+glue for. In line 8 we iterate over the NS records, which we put in the
+`DNSMessageWriter` on line 9. On line 10 we store glue record names. 
+
+Finally on line 12, we call `addAdditional` which will look up the glue
+names for us. This completes the response in case of a delegation.
+
+Note that contrary to RFC 1034, `addAdditional` **only** looks for glue
+within the `bestzone` itself. 
+
+## NXDOMAIN
+
+```
+1	else if(!searchname.empty()) {
+2		if(!CNAMELoopCount) // RFC 1034, 4.3.2, step 3.c
+3			response.dh.rcode = (int)RCode::Nxdomain;
+4		const auto& rrset = bestzone->rrsets[DNSType::SOA];
+5      
+6		response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+7	}
+```
+
+If `find` returned with a non-empty `searchname`, it meant there were parts
+of the query name that could not be matched to a node. We checked for a
+zonecut earlier (in the previous section), there was none. So this name
+really does not exist.
+
+In line 3 we set the response status to NXDOMAIN, unless we've looped
+through a CNAME already.
+
+In line 4 we look up the SOA record of our `bestzone` and in line 6 we put
+it in the message.
+
+## Node exists
+At this stage we know a node exists for this name, although it may actually
+be a wildcard node. We do not actually care if it is. Here is what we have
+to do first though.
+
+### Check for a CNAME
+
+```
+1	auto iter = node->rrsets.cbegin();
+2	if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
+5		const auto& rrset = iter->second;
+6		response.putRR(DNSSection::Answer, lastnode+zonename, DNSType::CNAME, rrset.ttl, rrset.contents[0]);
+7		DNSName target=dynamic_cast<CNAMEGen*>(rrset.contents[0].get())->d_name;
+8		if(target.makeRelative(zonename)) {
+9			searchname = target; 
+10			if(CNAMELoopCount++ < 10) {
+11				lastnode.clear();
+12				zonecutname.clear();
+13				goto loopCNAME;
+14			}
+15		}
+16		else
+17			cout<<"  CNAME points to record " << target << " in other zone, good luck" << endl;
+18	}
+```
+
+Line 1 defines an iterator for our subsequent lookup in line 2: is there a
+CNAME at this node? If so, in line 6 we put it in the DNSMessage. In line 7
+we extract the target of the CNAME.
+
+In line 8 we again violate the RFC 1034 algorithm by checking if the CNAME
+points to somewhere within our own zone. If it points to another zone, we
+are not going to chase this CNAME.
+
+On line 9 we redirect ourselves if within the same zone. We also check if we
+haven't looped 'too much' already. It appears everyone has picked the number
+10 for this. We do some cleanup on lines 11 and 12 and finally on line 13 we
+restart our algorithm. With a goto.
+
+### Name exists, no CNAME, matching types
+```
+1	if(iter = node->rrsets.find(qtype), iter != node->rrsets.end() || (!node->rrsets.empty() && qtype==DNSType::ANY)) {
+2		auto range = make_pair(iter, iter);
+3		if(qtype == DNSType::ANY)
+4			range = make_pair(node->rrsets.begin(), node->rrsets.end());
+5		else
+6			++range.second;        
+7		for(auto i2 = range.first; i2 != range.second; ++i2) {
+8			const auto& rrset = i2->second;
+9			for(const auto& rr : rrset.contents) {
+10				response.putRR(DNSSection::Answer, lastnode+zonename, i2->first, rrset.ttl, rr);
+11				if(i2->first == DNSType::MX)
+12					additional.push_back(dynamic_cast< MXGen* >(rr.get())->d_name);
+13			}
+14		}
+15	}
+```
+
+On line 1 is a somewhat tricky lookup that tries to find the query type in
+the RRSET, and if it could not be found, if the query maybe was for ANY and
+there are records that could be matched.
+
+On lines 2 to 6 we either pick the matching RRSet to put in the DNSMessage,
+or we set it up so we iterate over all types, which we then do on lines 8 to
+14.
+
+Note that again we gather up the server name of the MX record for additional
+processing. If we supported SRV records, we would do the same for them.
+
+### The name exists, but no types or no types match
+Finally one of the most vexing parts of DNS: a name that exists, but there
+are no types or at least no matching types. This could be an 'empty
+non-terminal', created out of thin air by 'some.long.name.powerdns.org'.
+This DNS Name populates nodes all along its length, even if no RRSets are
+attached to 'long.name.powerdns.org' for example.
+
+In many servers this is tricky, but since we followed a DNS tree based
+design with nodes, our code is trivial:
+
+```
+1	else {
+2		const auto& rrset = bestzone->rrsets[DNSType::SOA];
+3		response.putRR(DNSSection::Answer, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+4	}
+```
+
+All we have to do is 'else' off the previous case, and add the SOA record.
 
 # DNSMessageWriter
 

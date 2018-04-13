@@ -1,4 +1,5 @@
 #include "dns-storage.hh"
+#include <iomanip>
 using namespace std;
 
 bool DNSName::makeRelative(const DNSName& root)
@@ -20,7 +21,7 @@ bool DNSName::makeRelative(const DNSName& root)
 
 const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passedZonecut, DNSName* zonecutname) const
 {
-  cout<<"find for '"<<name<<"', last is now '"<<last<<"'"<<endl;
+  cout<<"find called for '"<<name<<"', last is now '"<<last<<"'"<<endl;
   if(!last.empty() && rrsets.count(DNSType::NS)) {
     cout<<"  passed a zonecut, making note of this"<<endl;
     if(passedZonecut)
@@ -30,11 +31,18 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passe
   }
 
   if(name.empty()) {
-    cout<<"Empty lookup, returning this node or 0"<<endl;
-    if(!zone && rrsets.empty()) // only root zone can have this
+    cout<<"Empty lookup name. ";
+    if(!zone && rrsets.empty()) { // only root zone can have this
+      cout<<"Returning zero"<<endl;
       return 0;
-    else
+    }
+    else {
+      cout<<"Returning node with following types: ";
+      for(const auto& c : rrsets)
+        cout<<c.first<<" ";
+      cout<<endl;
       return this;
+    }
   }
   cout<<"Children at this node: ";
   for(const auto& c: children) cout <<"'"<<c.first<<"' ";
@@ -45,7 +53,7 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passe
     cout<<"Found nothing, trying wildcard"<<endl;
     iter = children.find("*");
     if(iter == children.end()) {
-      cout<<"Still nothing, returning leaf"<<endl;
+      cout<<"Still nothing, returning this node"<<endl;
       return this;
     }
     else {
@@ -56,7 +64,7 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passe
       }
     }
   }
-  cout<<"  Had match, continuing to child '"<<iter->first<<"'"<<endl;
+  cout<<"  Had match at this node , continuing to child '"<<iter->first<<"'"<<endl;
   last.push_front(name.back());
   name.pop_back();
   return iter->second.find(name, last, passedZonecut, zonecutname);
@@ -100,10 +108,18 @@ void DNSNode::visit(std::function<void(const DNSName& name, const DNSNode*)> vis
     c.second.visit(visitor, DNSName{c.first}+name);
 }
 
-// this should perform escaping rules!
 std::ostream & operator<<(std::ostream &os, const DNSLabel& d)
 {
-  os<<d.d_s;
+  for(uint8_t a : d.d_s) {
+    if(a <= 0x20 || a >= 0x7f) {  // RFC 4343
+      os<<'\\'<<setfill('0')<<setw(3)<<(int)a;
+      setfill(' '); // setw resets itself
+    }
+    else if((char)a =='.' || (char)a=='\\')
+      os<<"\\"<<(char)a;
+    else
+      os<<(char)a;
+  }
   return os;
 }
 
