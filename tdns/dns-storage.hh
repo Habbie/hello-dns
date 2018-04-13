@@ -91,7 +91,7 @@ struct DNSName
 std::ostream & operator<<(std::ostream &os, const DNSName& d);
 DNSName operator+(const DNSName& a, const DNSName& b);
 
-struct DNSMessageWriter;
+class DNSMessageWriter;
 struct RRGen
 {
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
