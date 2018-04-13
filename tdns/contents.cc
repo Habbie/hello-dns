@@ -3,7 +3,7 @@
 
 void loadZones(DNSNode& zones)
 {
-  auto zone = zones.add({"powerdns", "org"});
+  auto zone = zones.add({"tdns", "powerdns", "org"});
   auto newzone = zone->zone = new DNSNode(); // XXX ICK
   
   newzone->addRRs(SOAGen::make({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1),
@@ -36,4 +36,16 @@ void loadZones(DNSNode& zones)
 
   newzone->add({"something"})->addRRs(AAAAGen::make("::1"), AGen::make("12.13.14.15"));
   newzone->add({"time"})->addRRs(ClockTXTGen::make("The time is %a, %d %b %Y %T %z"));
+
+  newzone->add({"ent", "was", "here"})->addRRs(TXTGen::make("plenum"));
+  newzone->add({"some.embedded.dots"})->addRRs(TXTGen::make("what do the dots look like?"));
+
+
+  const char zero[]="name-does-not-stop-here\x0-it-goes-on";
+  std::string zstring(zero, sizeof(zero)-1);
+  newzone->add({"goes-via-embedded-nul"})->addRRs(CNAMEGen::make({zstring, "tdns", "powerdns", "org"}));
+
+                                                  
+  newzone->add({zstring})->addRRs(TXTGen::make("this record is called name-does-not-stop-here\\000-it-goes-on"),
+                                                            AGen::make("192.0.0.1"));
 }

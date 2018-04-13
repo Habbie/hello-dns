@@ -116,7 +116,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     else {
       cout<<"Found something in zone '"<<zonename<<"' for lhs '"<<qname<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
       
-      auto iter = node->rrsets.cbegin();
+      decltype(node->rrsets)::const_iterator iter;
       vector<DNSName> additional;
       if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
         cout<<"We have a CNAME!"<<endl;

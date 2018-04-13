@@ -32,17 +32,11 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passe
 
   if(name.empty()) {
     cout<<"Empty lookup name. ";
-    if(!zone && rrsets.empty()) { // only root zone can have this
-      cout<<"Returning zero"<<endl;
-      return 0;
-    }
-    else {
-      cout<<"Returning node with following types: ";
-      for(const auto& c : rrsets)
-        cout<<c.first<<" ";
-      cout<<endl;
-      return this;
-    }
+    cout<<"Returning node with following types: ";
+    for(const auto& c : rrsets)
+      cout<<c.first<<" ";
+    cout<<endl;
+    return this;
   }
   cout<<"Children at this node: ";
   for(const auto& c: children) cout <<"'"<<c.first<<"' ";
