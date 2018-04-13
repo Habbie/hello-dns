@@ -9,5 +9,6 @@ before_script:
  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5
  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install make 
 script:
+ - cd tdns
  - make
  - make check
