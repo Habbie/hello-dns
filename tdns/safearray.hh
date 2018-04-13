@@ -35,9 +35,4 @@ struct SafeArray
     payloadpos += size;
     return ret;
   }
-
-  std::string serialize() const
-  {
-    return std::string((const char*)&payload.at(0), (const char*)&payload.at(payloadpos));
-  }
 };

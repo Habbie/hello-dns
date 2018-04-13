@@ -49,7 +49,6 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   dm.getQuestion(qname, qtype);
 
   DNSName origname=qname; // we need this for error reporting, we munch the original name
-
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<qname<<" and type "<<qtype<<endl;
 
   try {
@@ -66,7 +65,6 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       }
       response.setEDNS(newsize, doBit);
     }
-
     
     if(qtype == DNSType::AXFR || qtype == DNSType::IXFR)  {
       cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
@@ -199,7 +197,6 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
     DNSType qtype;
     dm.getQuestion(qname, qtype);
     DNSMessageWriter response(qname, qtype);
-
 
     if(processQuestion(*zones, dm, local, remote, response)) {
       cout<<"Sending response with rcode "<<(RCode)response.dh.rcode <<endl;
