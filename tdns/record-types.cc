@@ -60,16 +60,15 @@ void TXTGen::toMessage(DNSMessageWriter& dmw)
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 
 {
-  char buffer[160];
   struct tm tm;
   time_t now = time(0);
   localtime_r(&now, &tm);
-  std::string txt;
+
+  std::string txt("overflow");
+  char buffer[160];
   if(strftime(buffer, sizeof(buffer), d_format.c_str(), &tm))
     txt=buffer;
-  else
-    txt="Overflow";
-  // XXX should autosplit
-  dmw.putUInt8(txt.length());
-  dmw.putBlob(txt);
+
+  TXTGen gen(txt);
+  gen.toMessage(dmw);
 }

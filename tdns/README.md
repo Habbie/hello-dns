@@ -14,8 +14,12 @@ Even though the 'hello-dns' documents describe how basic DNS works, and how
 an authoritative server should function, nothing quite says how to do things
 like actual running code.  `tdns` is small enough to read in one sitting and
 shows how DNS packets are parsed and generated.  `tdns` is currently written
-in C++, and is MIT licensed.  Reimplementations in other languages are
-highly welcome, as these may be more accessible to other programmers.
+in C++ 2014, and is MIT licensed.  Reimplementations in other languages are
+highly welcome, as these may be more accessible to other programmers. 
+
+Please contact bert.hubert@powerdns.com or
+[@PowerDNS_Bert](https://twitter.com/PowerDNS_Bert) if you have plans or
+feedback.
 
 The goals of tdns are:
 
@@ -77,6 +81,10 @@ The core or `tdns` therefore is the tree of nodes as intended in 1034,
 containing DNS native objects like DNS Labels and DNS Names.
 
 # Objects
+These are found in [dns-storage.hh](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dns-storage.hh)
+and
+[dns-storage.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dns-storage.hh).
+
 ## DNSLabel
 The most basic object in `tdns` is DNSLabel. `www.powerdns.com` consists of
 three labels, `www`, `powerdns` and `com`. DNS is fundamentally case
@@ -236,6 +244,9 @@ multiple 'generator' parameters, more about which later.
 `add` accepts `DNSName`s as parameter, so to populate
 www.fra.ietf.org, use `newzone->add({"www", "fra", "ietf", "org"})`.
 
+Within `tdns`, the sample `powerdns.org` zone is populated within
+[contents.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/contents.cc).
+
 Finding nodes in the tree uses a slightly more complicated method called
 `find`. Unlike `add` it will not modify the tree, even though it has in
 common that it will return a pointer to a node.
@@ -292,6 +303,11 @@ like this:
 This attaches SOA, NS and MX records to the apex of a zone, and defines a
 `server1` node that is also referenced in the MX record. 
 
+This code can be found in
+[record-types.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/record-types.cc)
+and
+[record-types.hh](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/record-types.cc).
+
 Since there are many record types, it is imperative that adding a new one
 needs to happen in only one place. Within `tdns`, it actually requires two
 places: the `DNSType` enum needs to be updated with the numerical value of
@@ -336,14 +352,42 @@ put the generator in the right RRSet place.
 13 to 17 show the construction of the actual DNS resource record in a
 packet: the 16 bit priority, followed by the name.
 
+## A bit of fun: dynamic record contents
+Although names can not easily be dynamic within the DNS tree (either they
+exist or they don't), contents can be changed at will. 
+
+`tdns` defines a `time.powerdns.org` node which has a `ClockTXTGen`:
+
+```
+	newzone->add({"time"})->addRRs(ClockTXTGen::make("The time is %a, %d %b %Y %T %z"));
+```
+
+The code behind this generator:
+
+```
+	void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 
+	{
+		struct tm tm;
+		time_t now = time(0);
+		localtime_r(&now, &tm);
+
+		std::string txt("overflow");
+		char buffer[160];
+		if(strftime(buffer, sizeof(buffer), d_format.c_str(), &tm))
+			txt=buffer;
+
+		TXTGen gen(txt);
+		gen.toMessage(dmw);
+	}
+```
+Note that this generator uses the existing TXT code to encode itself. 
 # The RFC 1034 algorithm
 As noted in the [basic DNS](../basic.md.html) and
 [authoritative](../auth.md.html) pages, the RFC 1034
 algorithm can be simplified for a pure authoritative server.
 
-
 ## Finding the right zone and node
-In tdns.cc, processing starts like this:
+In [tdns.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/tdns.cc) , processing starts like this:
 
 ```
 1	DNSName zonename;
@@ -518,10 +562,166 @@ design with nodes, our code is trivial:
 
 All we have to do is 'else' off the previous case, and add the SOA record.
 
-# DNSMessageWriter
+# AXFR
+AXFR over TCP/IP consists of a series of DNS messages, each prefixed by a 16
+bit length field. The first and last RRSet contained within these DNS
+message(s) must be the SOA record of a zone. Code:
 
-# DNSMessageReader
+```
+1	DNSMessageWriter response(std::numeric_limits< uint16_t >::max()-sizeof(dnsheader));
+2	DNSName zone;
+3	auto fnd = zones->find(name, zone);
+4	if(!fnd || !fnd->zone || !name.empty() || !fnd->zone->rrsets.count(DNSType::SOA)) {
+5	  cout<< "   This was not a zone, or zone had no SOA" << endl;
+6	  return;
+7	}
+8	response.dh = dm.dh;
+9	response.dh.ad = response.dh.ra = response.dh.aa = 0;
+10	response.dh.qr = 1;
+11	response.setQuestion(zone, type);
+12
+13	auto node = fnd->zone;
+14
+15	// send SOA
+16	response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
+17
+18	writeTCPResponse(sock, response);
+```
 
+In line 1 we allocate a `DNSMessageWriter` of maximum size. Lines 2-7 find
+the best zone, as in the RFC 1034 algorithm. Of specific note is that 'empty
+non-terminal zones' could be found by this tree walking function, so we check for this.
+
+The response is then prepared, copying in the original dnsheader (with the
+transaction id), and setting the flags, qname and qtype correctly.
+
+Line 13 is again a convenience to save some typing. Line 16 adds the initial
+SOA record, and the response gets sent out on line 18.
+
+Note that it is possible to use this first DNSMessage for the initial SOA
+record and subsequent records too. To keep things simple, we don't do this
+here.
+
+Next up is the loop to pass the rest of the zone contents:
+
+```
+1	response.setQuestion(zone, type);
+2
+3	node->visit([&response,&sock,&name,&type,&zone](const DNSName& nname, const DNSNode* n) {
+4		for(const auto& p : n->rrsets) {
+5			if(p.first == DNSType::SOA)
+6				continue;
+7			for(const auto& rr : p.second.contents) {
+8				retry:
+9				try {
+10					response.putRR(DNSSection::Answer, nname, p.first, p.second.ttl, rr);
+11				}
+12				catch(std::out_of_range& e) { // exceeded packet size 
+13					writeTCPResponse(sock, response);
+14					response.setQuestion(zone, type);
+15					goto retry;
+16				}
+17			}
+18		}
+19	}, zone);
+20
+21	writeTCPResponse(sock, response);
+```
+
+In line 1, the DNS message is emptied of RRSets. Line 3 launches a visitor
+that walks the DNS Tree and calls putRR on all RRSets it finds, except the
+SOA record, which was sent already., so we skip it on line 5.
+
+Lines 9 to 11 attempt to put this resource record in the message. If the
+record does not fit, `putRR` rolls back the addition, and throws an
+exception which we catch on line 12. There we write out the message to TCP,
+reset the packet, and try again. 
+
+Finally in line 21 we write out the last `DNSMessageWriter` we filled.
+
+To terminate the AXFR, we now need to resend the SOA record, which we do as
+follows:
+
+```
+	response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
+	writeTCPResponse(sock, response);
+```
+
+Note: this code, in `tcpClientThread` of
+[tdns.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/record-types.cc)
+does not yet implement best TCP practices on timeouts and keeping open
+connections.
+
+# Parsing and generating DNS Messages
+This code is in [dnsmessages.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dnsmessages.cc)
+and [dnsmessages.hh](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dnsmessages.hh).
+
+## DNSMessageReader
+This class reads a DNS message, and makes available:
+ 
+ * The query name (qname) and type (qtype)
+ * The dnsheader containing the flags
+ * EDNS buffer size and value of DNSSEC Ok flag
+
+This is not a general purpose DNS Message reader. It can't parse resource
+records for example. It is meant for parsing queries. 
+
+Of specific security note, this is one area where we might potentially have
+to do pointer arithmetic. For security purposes, `DNSMessageReader` uses
+bounds checking access methods exclusively.
+
+## DNSMessageWriter
+This class creates DNS messages. It has a method for setting the `qname` and
+`qtype` of the message. If called, this also resets the message to its
+original state. Packets are only written in order. So it is not possible to
+change the `qname` after adding a resource record. This is why the state
+resets on calling `setQuestion()`. 
+
+Note: this should probably move to the constructor so it becomes impossible
+to do it wrong.
+
+Internally `DNSMessageWriter` again only uses bounds checked methods for
+modifying its state.
+
+A `DNSMessageWriter` has a maximum length. If new resource record, as
+written by `putRR`, would exceed this maximum length, that record is rolled
+back and a std::out_of_range() exception is thrown. This allows the caller
+to either truncate or decide this data was optional anyhow.
+
+## EDNS and truncation
+EDNS tells us that a larger buffer size is available. However, even with
+such a larger buffer size, a packet may exceed the available space. In that
+case, the standard tells us to truncate the packet, and then still put an
+EDNS record in the response.
+
+This is why the code is currently littered with 'if(haveEDNS)' in a number
+of places. This will be moved into `DNSMessageWriter` soon.
+
+
+# Internals
+`tdns` uses several small pieces of code not core to dns:
+
+ * [nenum](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/nenum.hh)
+   this is a simple 'named ENUM' construct that enables the printing of
+   DNSName::A
+ * [Simplesocket](https://github.com/ahupowerdns/simplesocket) a small set
+   of convenience functions for making sockets, parsing IP addresses etc.
+ * [Catch2](https://github.com/catchorg/Catch2) a unit test framework
+
+# Compiling and running tdns
+This requires a recent compiler version that supports C++ 2014. If you
+encounter problems, please let me know (see above for address details).
+
+```
+$ git clone https://github.com/ahupowerdns/hello-dns.git
+$ cd hello-dns/tdns
+$ git submodule init
+$ git submodule update
+$ make
+$ ./tdns [::1]:5300 &
+$ dig -t any time.powerdns.org @::1 -p 5300 +short 
+time.powerdns.org.	3600	IN	TXT	"The time is Fri, 13 Apr 2018 12:55:54 +0200"
+```
 <script>
 window.markdeepOptions={};
 window.markdeepOptions.tocStyle = "long";
