@@ -6,8 +6,8 @@ void loadZones(DNSNode& zones)
   auto zone = zones.add({"tdns", "powerdns", "org"});
   auto newzone = zone->zone = new DNSNode(); // XXX ICK
   
-  newzone->addRRs(SOAGen::make({"ns1", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1),
-                   NSGen::make({"ns1", "powerdns", "org"}), NSGen::make({"ns2", "powerdns", "org"}),
+  newzone->addRRs(SOAGen::make({"ns1", "tdns", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1),
+                  NSGen::make({"ns1", "tdns", "powerdns", "org"}), 
                    MXGen::make(25, {"server1", "powerdns", "org"})
                   );
   newzone->add({"server1"})->addRRs(AGen::make("213.244.168.210"), AAAAGen::make("::1"));
@@ -29,7 +29,7 @@ void loadZones(DNSNode& zones)
   newzone->add({"*", "fr"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server2", "powerdns", "org"}));
 
   newzone->add({"fra"})->addRRs(NSGen::make({"ns1","fra","powerdns","org"}), NSGen::make({"ns1","fra","powerdns","org"}));
-  newzone->add({"ns1"})->addRRs(AGen::make("212.13.14.15"));
+  newzone->add({"ns1"})->addRRs(AGen::make("52.56.155.186"));
   newzone->add({"ns1", "fra"})->addRRs(AGen::make("12.13.14.15"));
   newzone->add({"NS2", "fra"})->addRRs(AGen::make("12.13.14.16"));
   newzone->add({"ns2", "fra"})->addRRs(AAAAGen::make("::1"));  
@@ -44,8 +44,13 @@ void loadZones(DNSNode& zones)
   const char zero[]="name-does-not-stop-here\x0-it-goes-on";
   std::string zstring(zero, sizeof(zero)-1);
   newzone->add({"goes-via-embedded-nul"})->addRRs(CNAMEGen::make({zstring, "tdns", "powerdns", "org"}));
+  newzone->add({"goes-via-embedded-space"})->addRRs(CNAMEGen::make({"some host", "tdns", "powerdns", "org"}));
+  newzone->add({"goes-via-embedded-dot"})->addRRs(CNAMEGen::make({"some.host", "tdns", "powerdns", "org"}));
 
                                                   
   newzone->add({zstring})->addRRs(TXTGen::make("this record is called name-does-not-stop-here\\000-it-goes-on"),
                                                             AGen::make("192.0.0.1"));
+
+  newzone->add({"some host"})->addRRs(AGen::make("192.0.0.2"));
+  newzone->add({"some.host"})->addRRs(AGen::make("192.0.0.3"));
 }

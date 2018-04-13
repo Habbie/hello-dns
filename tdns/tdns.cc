@@ -56,6 +56,17 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     response.dh.id = dm.dh.id;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
     response.dh.qr = 1;
+    uint16_t newsize; bool doBit;
+
+    if(dm.getEDNS(&newsize, &doBit)) {
+      if(dm.d_ednsVersion != 0) {
+        cout<<"Bad EDNS version: "<<(int)dm.d_ednsVersion<<endl;
+        response.setEDNS(newsize, doBit, RCode::Badvers);
+        return true;
+      }
+      response.setEDNS(newsize, doBit);
+    }
+
     
     if(qtype == DNSType::AXFR || qtype == DNSType::IXFR)  {
       cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
@@ -127,7 +138,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         if(target.makeRelative(zonename)) {
           cout<<"  Should follow CNAME to "<<target<<" within our zone"<<endl;
           searchname = target; 
-          if(CNAMELoopCount++ < 10) {
+          if(qtype != DNSType::CNAME && CNAMELoopCount++ < 10) {  // do not loop if they *wanted* the CNAME
             lastnode.clear();
             zonecutname.clear();
             goto loopCNAME;
@@ -188,10 +199,7 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
     DNSType qtype;
     dm.getQuestion(qname, qtype);
     DNSMessageWriter response(qname, qtype);
-    uint16_t newsize; bool doBit;
 
-    if(dm.getEDNS(&newsize, &doBit))
-      response.setEDNS(newsize, doBit);
 
     if(processQuestion(*zones, dm, local, remote, response)) {
       cout<<"Sending response with rcode "<<(RCode)response.dh.rcode <<endl;

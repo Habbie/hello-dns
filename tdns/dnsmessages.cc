@@ -16,7 +16,8 @@ DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
   if(dh.arcount) {
     if(payload.getUInt8() == 0 && payload.getUInt16() == (uint16_t)DNSType::OPT) {
       d_bufsize=payload.getUInt16();
-      payload.getUInt16(); // extended RCODE, EDNS version XXX check this is 0
+      payload.getUInt8(); // extended RCODE
+      d_ednsVersion = payload.getUInt8(); 
       auto flags = payload.getUInt8();
       d_doBit = flags & 0x80;
       payload.getUInt8(); payload.getUInt16(); // ignore rest
@@ -85,12 +86,12 @@ void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType ty
   }
 }
 
-void DNSMessageWriter::putEDNS(uint16_t bufsize, bool doBit)
+void DNSMessageWriter::putEDNS(uint16_t bufsize, RCode ercode, bool doBit)
 {
   auto cursize = payloadpos;
   try {
     putUInt8(0); putUInt16((uint16_t)DNSType::OPT); // 'root' name, our type
-    putUInt16(bufsize); putUInt16(0); putUInt8(doBit ? 0x80 : 0); putUInt8(0);
+    putUInt16(bufsize); putUInt8(((int)ercode)>>4); putUInt8(0); putUInt8(doBit ? 0x80 : 0); putUInt8(0);
     putUInt16(0);
   }
   catch(...) {
@@ -122,25 +123,26 @@ string DNSMessageWriter::serialize() const
   try {
     if(haveEDNS) {
       cout<<"Adding EDNS to DNS Message"<<endl;
-      act.putEDNS(payload.size() + sizeof(dnsheader), d_doBit);
+      act.putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
     }
   }
   catch(std::out_of_range& e) {
     cout<<"Got truncated while adding EDNS! Truncating"<<endl;
     act.clearRRs();
     act.dh.tc = 1; act.dh.aa = 0;
-    act.putEDNS(payload.size() + sizeof(dnsheader), d_doBit);
+    act.putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
   }
   std::string ret((const char*)&act.dh, ((const char*)&act.dh) + sizeof(dnsheader));
   ret.append((const unsigned char*)&act.payload.at(0), (const unsigned char*)&act.payload.at(act.payloadpos));
   return ret;
 }
 
-void DNSMessageWriter::setEDNS(uint16_t newsize, bool doBit)
+void DNSMessageWriter::setEDNS(uint16_t newsize, bool doBit, RCode ercode)
 {
   cout<<"Setting new buffer size "<<newsize<<" for writer"<<endl;
   if(newsize > sizeof(dnsheader))
     payload.resize(newsize - sizeof(dnsheader));
   d_doBit = doBit;
+  d_ercode = ercode;
   haveEDNS=true;
 }

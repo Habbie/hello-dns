@@ -44,11 +44,11 @@ std::ostream & operator<<(std::ostream &os, const DNSLabel& d);
 
 enum class RCode 
 {
-  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5
+  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5, Badvers=16
 };
 
 SMARTENUMSTART(RCode)
-SENUM5(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused)
+SENUM6(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused, Badvers)
 SMARTENUMEND(RCode)
 
 enum class DNSType : uint16_t
