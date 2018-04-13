@@ -55,7 +55,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   try {
     response.dh.id = dm.dh.id; response.dh.rd = dm.dh.rd;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
-    response.dh.qr = 1;
+    response.dh.qr = 1; response.dh.opcode = dm.dh.opcode;
     uint16_t newsize; bool doBit;
 
     if(dm.getEDNS(&newsize, &doBit)) {
