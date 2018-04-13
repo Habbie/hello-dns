@@ -1,7 +1,7 @@
 #pragma once
 struct dnsheader {
         unsigned        id :16;         /* query identification number */
-#if BYTE_ORDER == BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
                         /* fields in third byte */
         unsigned        qr: 1;          /* response flag */
         unsigned        opcode: 4;      /* purpose of message */
@@ -14,7 +14,7 @@ struct dnsheader {
         unsigned        ad: 1;          /* authentic data from named */
         unsigned        cd: 1;          /* checking disabled by resolver */
         unsigned        rcode :4;       /* response code */
-#elif BYTE_ORDER == LITTLE_ENDIAN || BYTE_ORDER == PDP_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ 
                         /* fields in third byte */
         unsigned        rd :1;          /* recursion desired */
         unsigned        tc :1;          /* truncated message */

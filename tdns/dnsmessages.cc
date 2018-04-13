@@ -21,6 +21,7 @@ DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
       d_doBit = flags & 0x80;
       payload.getUInt8(); payload.getUInt16(); // ignore rest
       cout<<"   There was an EDNS section, size supported: "<< d_bufsize<<endl;
+      d_haveEDNS = true;
     }
   }
 }
@@ -96,26 +97,50 @@ void DNSMessageWriter::putEDNS(uint16_t bufsize, bool doBit)
     payloadpos = cursize;
     throw;
   }
-  dh.nscount = htons(ntohs(dh.nscount)+1);
+  dh.arcount = htons(ntohs(dh.arcount)+1);
 }
 
-void DNSMessageWriter::setQuestion(const DNSName& name, DNSType type)
+DNSMessageWriter::DNSMessageWriter(const DNSName& name, DNSType type, int maxsize) : d_qname(name), d_qtype(type)
 {
-  dh.ancount = dh.arcount = dh.nscount = 0;
+  memset(&dh, 0, sizeof(dh));
+  payload.resize(maxsize);
+  clearRRs();
+}
+
+void DNSMessageWriter::clearRRs()
+{
+  dh.qdcount = htons(1) ; dh.ancount = dh.arcount = dh.nscount = 0;
   payloadpos=0;
-  putName(name);
-  putUInt16((uint16_t)type);
+  putName(d_qname);
+  putUInt16((uint16_t)d_qtype);
   putUInt16(1); // class
 }
 
-string DNSMessageReader::serialize() const
-{
-  return string((const char*)this, (const char*)this + sizeof(dnsheader) + payload.payloadpos);
-}
 string DNSMessageWriter::serialize() const
 {
-  std::string ret((const char*)this, (const char*)this + sizeof(dnsheader));
-  ret.append((const unsigned char*)&payload[0], (const unsigned char*)&payload[payloadpos]);
+  DNSMessageWriter act = *this;
+  try {
+    if(haveEDNS) {
+      cout<<"Adding EDNS to DNS Message"<<endl;
+      act.putEDNS(payload.size() + sizeof(dnsheader), d_doBit);
+    }
+  }
+  catch(std::out_of_range& e) {
+    cout<<"Got truncated while adding EDNS! Truncating"<<endl;
+    act.clearRRs();
+    act.dh.tc = 1; act.dh.aa = 0;
+    act.putEDNS(payload.size() + sizeof(dnsheader), d_doBit);
+  }
+  std::string ret((const char*)&act.dh, ((const char*)&act.dh) + sizeof(dnsheader));
+  ret.append((const unsigned char*)&act.payload.at(0), (const unsigned char*)&act.payload.at(act.payloadpos));
   return ret;
 }
 
+void DNSMessageWriter::setEDNS(uint16_t newsize, bool doBit)
+{
+  cout<<"Setting new buffer size "<<newsize<<" for writer"<<endl;
+  if(newsize > sizeof(dnsheader))
+    payload.resize(newsize - sizeof(dnsheader));
+  d_doBit = doBit;
+  haveEDNS=true;
+}

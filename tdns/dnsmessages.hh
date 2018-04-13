@@ -14,7 +14,6 @@ public:
 
   void getQuestion(DNSName& name, DNSType& type) const;
   bool getEDNS(uint16_t* newsize, bool* doBit) const;
-  std::string serialize() const;
 
 private:
   DNSName getName();
@@ -26,20 +25,23 @@ private:
   bool d_haveEDNS;
 }; 
 
-struct DNSMessageWriter
+class DNSMessageWriter
 {
+public:
   struct dnsheader dh=dnsheader{};
   std::vector<uint8_t> payload;
   uint16_t payloadpos=0;
+  DNSName d_qname;
+  DNSType d_qtype;
+  DNSClass d_qclass;
+  bool haveEDNS{false};
+  bool d_doBit;
 
-  explicit DNSMessageWriter(int maxsize=500)
-  {
-    payload.resize(maxsize);
-  }
-  
-  void setQuestion(const DNSName& name, DNSType type);
+  DNSMessageWriter(const DNSName& name, DNSType type, int maxsize=500);
+
+  void clearRRs();
   void putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
-  void putEDNS(uint16_t bufsize, bool doBit);
+  void setEDNS(uint16_t bufsize, bool doBit);
   std::string serialize() const;
 
   void putUInt8(uint8_t val)
@@ -87,5 +89,8 @@ struct DNSMessageWriter
     }
     putUInt8(0);
   }
+
+private:
+  void putEDNS(uint16_t bufsize, bool doBit);
 };
 

@@ -57,10 +57,10 @@ Known broken:
  * ~~RCode after one CNAME chase~~
  * ~~On output (to screen) we do not escape DNS names correctly~~
  * TCP/IP does not follow recommended timeouts
- * EDNS is a bit clunky and should move into DNSMessageWriter
+ * ~~EDNS is a bit clunky and should move into DNSMessageWriter~~
 
-The code is not quite in a teachable state and still contains ugly bits. But
-well worth [a
+The code is not quite in a teachable state yet and still contains ugly bits. 
+But well worth [a
 read](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).
 
 # Layout
@@ -694,9 +694,8 @@ such a larger buffer size, a packet may exceed the available space. In that
 case, the standard tells us to truncate the packet, and then still put an
 EDNS record in the response.
 
-This is why the code is currently littered with 'if(haveEDNS)' in a number
-of places. This will be moved into `DNSMessageWriter` soon.
-
+The DNSMessageWriter, in somewhat of a layering violation, takes care of
+this in `serialize()`.
 
 # Internals
 `tdns` uses several small pieces of code not core to dns:

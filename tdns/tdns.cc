@@ -47,39 +47,25 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   DNSName qname;
   DNSType qtype;
   dm.getQuestion(qname, qtype);
+
   DNSName origname=qname; // we need this for error reporting, we munch the original name
-  bool haveEDNS=false;
 
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<qname<<" and type "<<qtype<<endl;
 
-  uint16_t newsize=0;
-  bool doBit=false;
-
-  haveEDNS = dm.getEDNS(&newsize, &doBit);
-  if(haveEDNS && newsize > sizeof(dnsheader))
-    response.payload.resize(newsize - sizeof(dnsheader));
-
   try {
-    response.dh = dm.dh;
+    response.dh.id = dm.dh.id;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
     response.dh.qr = 1;
-    response.setQuestion(qname, qtype);
     
     if(qtype == DNSType::AXFR || qtype == DNSType::IXFR)  {
       cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
       response.dh.rcode = (int)RCode::Servfail;
-      if(haveEDNS) {
-        response.putEDNS(newsize, doBit);
-      }
       return true;
     }
 
     if(dm.dh.opcode != 0) {
       cout<<"Query had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
       response.dh.rcode = (int)RCode::Notimp;
-      if(haveEDNS) {
-        response.putEDNS(newsize, doBit);
-      }
       return true;
     }
     
@@ -88,9 +74,6 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     if(!fnd || !fnd->zone) {
       cout<<"No zone matched"<<endl;
       response.dh.rcode = (uint8_t)RCode::Refused;
-      if(haveEDNS) {
-        response.putEDNS(newsize, doBit);
-      }
       return true;
     }
     
@@ -175,19 +158,12 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       }
       addAdditional(bestzone, zonename, additional, response);      
     }
-    if(haveEDNS) {
-      response.putEDNS(newsize, doBit);
-    }
     return true;
   }
   catch(std::out_of_range& e) { // exceeded packet size
     cout<<"Query for '"<<origname<<"'|"<<qtype<<" got truncated"<<endl;
-    response.setQuestion(origname, qtype); // this resets the packet
-    response.dh.tc=1; response.dh.aa=0;
-    if(haveEDNS) {
-      response.putEDNS(newsize, doBit);
-    }
-    
+    response.clearRRs(); 
+    response.dh.aa = 0;   response.dh.tc = 1; 
     return true;
   }
   catch(std::exception& e) {
@@ -208,11 +184,19 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
       cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
       continue;
     }
+    DNSName qname;
+    DNSType qtype;
+    dm.getQuestion(qname, qtype);
+    DNSMessageWriter response(qname, qtype);
+    uint16_t newsize; bool doBit;
 
-    DNSMessageWriter response;
+    if(dm.getEDNS(&newsize, &doBit))
+      response.setEDNS(newsize, doBit);
+
     if(processQuestion(*zones, dm, local, remote, response)) {
       cout<<"Sending response with rcode "<<(RCode)response.dh.rcode <<endl;
-      SSendto(*sock, response.serialize(), remote);
+      string ret = response.serialize();
+      SSendto(*sock, ret, remote);
     }
   }
 }
@@ -261,15 +245,14 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     DNSName name;
     DNSType type;
     dm.getQuestion(name, type);
-    DNSMessageWriter response(std::numeric_limits<uint16_t>::max()-sizeof(dnsheader));
+    DNSMessageWriter response(name, type, std::numeric_limits<uint16_t>::max());
     
     if(type == DNSType::AXFR) {
       cout<<"Should do AXFR for "<<name<<endl;
 
-      response.dh = dm.dh;
+      response.dh.id = dm.dh.id;
       response.dh.ad = response.dh.ra = response.dh.aa = 0;
       response.dh.qr = 1;
-      response.setQuestion(name, type);
       
       DNSName zone;
       auto fnd = zones->find(name, zone);
@@ -287,7 +270,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
 
       writeTCPResponse(sock, response);
-      response.setQuestion(zone, type);
+      response.clearRRs();
 
       // send all other records
       node->visit([&response,&sock,&name,&type,&zone](const DNSName& nname, const DNSNode* n) {
@@ -301,7 +284,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
               }
               catch(std::out_of_range& e) { // exceeded packet size 
                 writeTCPResponse(sock, response);
-                response.setQuestion(zone, type);
+                response.clearRRs();
                 goto retry;
               }
             }
@@ -309,7 +292,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
         }, zone);
 
       writeTCPResponse(sock, response);
-      response.setQuestion(zone, type);
+      response.clearRRs();
 
       // send SOA again
       response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
@@ -318,8 +301,6 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       return;
     }
     else {
-      dm.payload.rewind();
-      
       if(processQuestion(*zones, dm, local, remote, response)) {
         writeTCPResponse(sock, response);
       }
