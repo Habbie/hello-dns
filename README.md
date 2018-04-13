@@ -52,6 +52,7 @@ The content is spread out over several documents:
  * [The core of DNS](basic.md.html)
  * [Relevant to stub resolvers and applications](stub.md.html)
  * [Relevant to authoritative servers](auth.md.html)
+ * [tdns: a 'from scratch' teaching authoritative server, implementing all of basic DNS in 1100 lines of code](tdns/README.md.html)
  * [Relevant to resolvers](resolver.md.html)
  * Optional elements: [EDNS, TSIG, Dynamic Updates, DNAME, DNS Cookies](optional.md.html)
  * [Privacy related](privacy.md.html): QName minimization, DNS-over-TLS, DNS-over-HTTPS, EDNS Padding
