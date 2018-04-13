@@ -353,7 +353,7 @@ try
   thread udpServer(udpThread, local, &udplistener, &zones);
 
   for(;;) {
-    ComboAddress remote;
+    ComboAddress remote(local); // so it has room for IPv6
     int client = SAccept(tcplistener, remote);
     thread t(tcpClientThread, local, remote, client, &zones);
     t.detach();
