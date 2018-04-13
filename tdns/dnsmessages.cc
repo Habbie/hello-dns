@@ -3,6 +3,28 @@
 
 using namespace std;
 
+DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
+{
+  if(size < sizeof(dnsheader))
+    throw std::runtime_error("DNS message too small");
+  memcpy(&dh, in, sizeof(dh));
+  auto rest = size-sizeof(dh);
+  memcpy(&payload.payload.at(rest)-rest, in+sizeof(dh), rest);
+  d_qname = getName();
+  d_qtype = (DNSType) payload.getUInt16();
+  d_qclass = (DNSClass) payload.getUInt16();
+  if(dh.arcount) {
+    if(payload.getUInt8() == 0 && payload.getUInt16() == (uint16_t)DNSType::OPT) {
+      d_bufsize=payload.getUInt16();
+      payload.getUInt16(); // extended RCODE, EDNS version XXX check this is 0
+      auto flags = payload.getUInt8();
+      d_doBit = flags & 0x80;
+      payload.getUInt8(); payload.getUInt16(); // ignore rest
+      cout<<"   There was an EDNS section, size supported: "<< d_bufsize<<endl;
+    }
+  }
+}
+
 DNSName DNSMessageReader::getName()
 {
   DNSName name;
@@ -18,28 +40,18 @@ DNSName DNSMessageReader::getName()
   return name;
 }
 
-void DNSMessageReader::getQuestion(DNSName& name, DNSType& type)
+void DNSMessageReader::getQuestion(DNSName& name, DNSType& type) const
 {
-  name=getName();
-  type=(DNSType)payload.getUInt16();
-  payload.getUInt16(); // skip the class
+  name = d_qname; type = d_qtype;
 }
 
-bool DNSMessageReader::getEDNS(uint16_t* newsize, bool* doBit)
+bool DNSMessageReader::getEDNS(uint16_t* bufsize, bool* doBit) const
 {
-  if(dh.arcount) {
-    if(payload.getUInt8() == 0 && payload.getUInt16() == (uint16_t)DNSType::OPT) {
-      *newsize=payload.getUInt16();
-      payload.getUInt16(); // extended RCODE, EDNS version
-      auto flags = payload.getUInt8();
-      *doBit = flags & 0x80;
-      payload.getUInt8(); payload.getUInt16(); // ignore rest
-      cout<<"   There was an EDNS section, size supported: "<<newsize<<endl;
-      return true;
-      
-    }
-  }
-  return false;
+  if(!d_haveEDNS)
+    return false;
+  *bufsize = d_bufsize;
+  *doBit = doBit;
+  return true;
 }
 
 void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
@@ -107,4 +119,3 @@ string DNSMessageWriter::serialize() const
   return ret;
 }
 
-static_assert(sizeof(DNSMessageReader) == 516, "dnsmessagereader size must be 516");

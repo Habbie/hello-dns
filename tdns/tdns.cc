@@ -85,7 +85,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     
     DNSName zonename;
     auto fnd = zones.find(qname, zonename); 
-    if(!fnd && !fnd->zone) {
+    if(!fnd || !fnd->zone) {
       cout<<"No zone matched"<<endl;
       response.dh.rcode = (uint8_t)RCode::Refused;
       if(haveEDNS) {
@@ -200,13 +200,9 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
 {
   for(;;) {
     ComboAddress remote(local);
-    DNSMessageReader dm;
-    string message = SRecvfrom(*sock, sizeof(dm), remote);
-    if(message.size() < sizeof(dnsheader)) {
-      cerr<<"Dropping query from "<<remote.toStringWithPort()<<", too short"<<endl;
-      continue;
-    }
-    memcpy(&dm, message.c_str(), message.size());
+
+    string message = SRecvfrom(*sock, 512, remote);
+    DNSMessageReader dm(message);
 
     if(dm.dh.qr) {
       cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
@@ -255,8 +251,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     }
 
     message = SRead(sock, len);
-    DNSMessageReader dm;
-    memcpy(&dm, message.c_str(), message.size());
+    DNSMessageReader dm(message);
 
     if(dm.dh.qr) {
       cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
@@ -271,17 +266,20 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     if(type == DNSType::AXFR) {
       cout<<"Should do AXFR for "<<name<<endl;
 
+      response.dh = dm.dh;
+      response.dh.ad = response.dh.ra = response.dh.aa = 0;
+      response.dh.qr = 1;
+      response.setQuestion(name, type);
+      
       DNSName zone;
       auto fnd = zones->find(name, zone);
       if(!fnd || !fnd->zone || !name.empty() || !fnd->zone->rrsets.count(DNSType::SOA)) {
         cout<<"   This was not a zone, or zone had no SOA"<<endl;
-        return;
+        response.dh.rcode = (int)RCode::Refused;
+        writeTCPResponse(sock, response);
+        continue;
       }
       cout<<"Have zone, walking it"<<endl;
-      response.dh = dm.dh;
-      response.dh.ad = response.dh.ra = response.dh.aa = 0;
-      response.dh.qr = 1;
-      response.setQuestion(zone, type);
 
       auto node = fnd->zone;
 

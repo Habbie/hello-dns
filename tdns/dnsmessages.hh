@@ -4,15 +4,26 @@
 #include "dns-storage.hh"
 #include <vector>
 
-struct DNSMessageReader
+class DNSMessageReader
 {
+public:
+  DNSMessageReader(const char* input, uint16_t length);
+  DNSMessageReader(const std::string& str) : DNSMessageReader(str.c_str(), str.size()) {}
   struct dnsheader dh=dnsheader{};
   SafeArray<500> payload;
 
-  DNSName getName();
-  void getQuestion(DNSName& name, DNSType& type);
-  bool getEDNS(uint16_t* newsize, bool* doBit);  
+  void getQuestion(DNSName& name, DNSType& type) const;
+  bool getEDNS(uint16_t* newsize, bool* doBit) const;
   std::string serialize() const;
+
+private:
+  DNSName getName();
+  DNSName d_qname;
+  DNSType d_qtype;
+  DNSClass d_qclass;
+  uint16_t d_bufsize;
+  bool d_doBit;
+  bool d_haveEDNS;
 }; 
 
 struct DNSMessageWriter

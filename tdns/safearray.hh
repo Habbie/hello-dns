@@ -15,7 +15,7 @@ struct SafeArray
   {
     payloadpos = 0;
   }
-  
+
   uint8_t getUInt8()
   {
     return payload.at(payloadpos++);
@@ -28,7 +28,6 @@ struct SafeArray
     payloadpos+=2;
     return htons(ret);
   }
-
   
   std::string getBlob(int size)
   {

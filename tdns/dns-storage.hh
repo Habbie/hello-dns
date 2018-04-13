@@ -61,6 +61,12 @@ SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, IXFR, AAAA, SRV, OPT, IX
 SENUM2(DNSType, AXFR, ANY)
 SMARTENUMEND(DNSType)
 
+enum class DNSClass : uint16_t
+{
+  IN=1, CHAOS=3
+};
+SMARTENUMSTART(DNSClass) SENUM2(DNSClass, IN, CHAOS) SMARTENUMEND(DNSClass)
+
 COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3)
 
 struct DNSName
