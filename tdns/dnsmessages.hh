@@ -2,6 +2,7 @@
 #include "dns.hh"
 #include "safearray.hh"
 #include "dns-storage.hh"
+#include "record-types.hh"
 #include <vector>
 
 class DNSMessageReader
@@ -40,11 +41,13 @@ public:
   RCode d_ercode{(RCode)0};
 
   DNSMessageWriter(const DNSName& name, DNSType type, int maxsize=500);
-
+  ~DNSMessageWriter() { delete d_comptree;}
+  DNSMessageWriter(const DNSMessageWriter&) = delete;
+  DNSMessageWriter& operator=(const DNSMessageWriter&) = delete;
   void clearRRs();
   void putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
   void setEDNS(uint16_t bufsize, bool doBit, RCode ercode = (RCode)0);
-  std::string serialize() const;
+  std::string serialize();
 
   void putUInt8(uint8_t val)
   {
@@ -83,16 +86,9 @@ public:
     memcpy(&payload.at(payloadpos+size) - size, blob, size);
     payloadpos += size;
   }
-  void putName(const DNSName& name)
-  {
-    for(const auto& l : name) {
-      putUInt8(l.size());
-      putBlob(l.d_s);
-    }
-    putUInt8(0);
-  }
-
+  void putName(const DNSName& name, bool compress=true);
 private:
+  DNSNode* d_comptree{0};
   void putEDNS(uint16_t bufsize, RCode ercode, bool doBit);
 };
 

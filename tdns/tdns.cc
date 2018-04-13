@@ -95,7 +95,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     int CNAMELoopCount = 0;
     
   loopCNAME:;
-    auto node = bestzone->find(searchname, lastnode, &passedZonecut, &zonecutname);
+    auto node = bestzone->find(searchname, lastnode, true, &passedZonecut, &zonecutname);
     if(passedZonecut) {
       response.dh.aa = false;
       cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
@@ -206,7 +206,7 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
   }
 }
 
-void writeTCPResponse(int sock, const DNSMessageWriter& response)
+void writeTCPResponse(int sock, DNSMessageWriter& response)
 {
   string ser="00"+response.serialize();
   cout<<"Sending a message of "<<ser.size()<<" bytes in response"<<endl;

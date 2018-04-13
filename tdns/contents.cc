@@ -8,7 +8,7 @@ void loadZones(DNSNode& zones)
   
   newzone->addRRs(SOAGen::make({"ns1", "tdns", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1),
                   NSGen::make({"ns1", "tdns", "powerdns", "org"}), 
-                   MXGen::make(25, {"server1", "powerdns", "org"})
+                  MXGen::make(25, {"server1", "tdns", "powerdns", "org"})
                   );
   newzone->add({"server1"})->addRRs(AGen::make("213.244.168.210"), AAAAGen::make("::1"));
   
@@ -19,14 +19,14 @@ void loadZones(DNSNode& zones)
   newzone->addRRs(TXTGen::make("Proudly served by tdns compiled on " __DATE__ " " __TIME__),
                   TXTGen::make("This is some more filler to make this packet exceed 512 bytes"));
   
-  newzone->add({"www"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server1","powerdns","org"}));
-  newzone->add({"www2"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"nosuchserver1","powerdns","org"}));
+  newzone->add({"www"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server1","tdns","powerdns","org"}));
+  newzone->add({"www2"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"nosuchserver1","tdns","powerdns","org"}));
 
 
   newzone->add({"server2"})->addRRs(AGen::make("213.244.168.210"), AAAAGen::make("::1"));
   
   newzone->add({"*", "nl"})->rrsets[DNSType::A].add(AGen::make("5.6.7.8"));
-  newzone->add({"*", "fr"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server2", "powerdns", "org"}));
+  newzone->add({"*", "fr"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server2", "tdns", "powerdns", "org"}));
 
   newzone->add({"fra"})->addRRs(NSGen::make({"ns1","fra","powerdns","org"}), NSGen::make({"ns1","fra","powerdns","org"}));
   newzone->add({"ns1"})->addRRs(AGen::make("52.56.155.186"));

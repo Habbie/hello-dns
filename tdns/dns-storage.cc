@@ -19,7 +19,7 @@ bool DNSName::makeRelative(const DNSName& root)
   return true;
 }
 
-const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passedZonecut, DNSName* zonecutname) const
+const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const DNSNode** passedZonecut, DNSName* zonecutname) const
 {
   cout<<"find called for '"<<name<<"', last is now '"<<last<<"'"<<endl;
   if(!last.empty() && rrsets.count(DNSType::NS)) {
@@ -44,6 +44,8 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passe
   auto iter = children.find(name.back());
   cout<<"Looked for child called '"<<name.back()<<"'"<<endl;
   if(iter == children.end()) {
+    if(!wildcard)
+      return this;
     cout<<"Found nothing, trying wildcard"<<endl;
     iter = children.find("*");
     if(iter == children.end()) {
@@ -61,18 +63,18 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, const DNSNode** passe
   cout<<"  Had match at this node , continuing to child '"<<iter->first<<"'"<<endl;
   last.push_front(name.back());
   name.pop_back();
-  return iter->second.find(name, last, passedZonecut, zonecutname);
+  return iter->second.find(name, last, wildcard, passedZonecut, zonecutname);
 }
 
 DNSNode* DNSNode::add(DNSName name) 
 {
-  cout<<"Add called for '"<<name<<"'"<<endl;
+  //  cout<<"Add called for '"<<name<<"'"<<endl;
   if(name.size() == 1) {
-    cout<<"  Last label, done with add. ";
-    if(children.count(name.front()))
-      cout<<"Label was present already"<<endl;
-    else
-      cout<<"Added label as new child"<<endl;
+    //    cout<<"  Last label, done with add. ";
+    //    if(children.count(name.front()))
+    //  cout<<"Label was present already"<<endl;
+    //else
+    //  cout<<"Added label as new child"<<endl;
     return &children[name.front()];
   }
 

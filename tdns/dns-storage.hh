@@ -80,6 +80,7 @@ struct DNSName
   auto end() const { return d_name.end(); }
   auto front() const { return d_name.front(); }
   void pop_back() { d_name.pop_back(); }
+  void pop_front() { d_name.pop_front(); }
   auto push_front(const DNSLabel& dn) { return d_name.push_front(dn); }
   auto size() { return d_name.size(); }
   void clear() { d_name.clear(); }
@@ -113,13 +114,11 @@ struct RRSet
 
 struct DNSNode
 {
-  const DNSNode* find(DNSName& name, DNSName& last, const DNSNode** passedZonecut=0, DNSName* zonecutname=0) const;
+  const DNSNode* find(DNSName& name, DNSName& last, bool wildcards=false, const DNSNode** passedZonecut=0, DNSName* zonecutname=0) const;
   DNSNode* add(DNSName name);
   std::map<DNSLabel, DNSNode> children;
-  std::map<DNSType, RRSet > rrsets;
   
   void addRRs(std::unique_ptr<RRGen>&&a);
-
   template<typename... Types>
   void addRRs(std::unique_ptr<RRGen>&&a, Types&&... args)
   {
@@ -128,7 +127,10 @@ struct DNSNode
   }
   
   void visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const;
+
+  std::map<DNSType, RRSet > rrsets;
   DNSNode* zone{0}; // if this is set, this node is a zone
+  uint16_t namepos{0};
 };
 
 void loadZones(DNSNode& zones);

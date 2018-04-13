@@ -6,9 +6,9 @@ Note: this page is part of the
 
 # teaching DNS
 Welcome to tdns, a 'from scratch' teaching authoritative server,
-implementing all of [basic DNS](../basic.md.html) in ~~1000~~ 1100 lines of
-code.  Code is
-[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns). To
+implementing all of [basic DNS](../basic.md.html) in ~~1000~~ ~~1100~~ 1200
+lines of code.  Code is
+[here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).  To
 compile, see the end of this document.
 
 Even though the 'hello-dns' documents describe how basic DNS works, and how
@@ -44,12 +44,13 @@ All 'basic DNS' items are implemented.
  * Delegations
  * Glue records
  * Truncation
+ * Compression
 
 As a bonus:
  * EDNS (buffer size, no options)
 
 Missing:
- * DNS Compression (may not fit in, say, 1200 lines!)
+ * ~~DNS Compression (may not fit in, say, 1200 lines!)~~
  * SRV and NAPTR would be nice
 
 Known broken:
@@ -215,8 +216,8 @@ downward again, starting at the apex with `ns1.ord.ietf` and going to the
 addresses.
 
 ## Objects
-`tdns` uses a DNS tree in two places: 1) to quickly find the right zone for
-a query 2) within that zone, to traverse the names. 
+`tdns` uses a DNS tree in three places: 1) to quickly find the right zone for
+a query 2) within that zone, to traverse the names 3) DNS name compression.
 
 The DNS tree within `tdns` consists of `DNSNode` objects, each of which can
 have:
@@ -686,6 +687,18 @@ A `DNSMessageWriter` has a maximum length. If new resource record, as
 written by `putRR`, would exceed this maximum length, that record is rolled
 back and a std::out_of_range() exception is thrown. This allows the caller
 to either truncate or decide this data was optional anyhow.
+
+### Compression
+DNS compression is unreasonably difficult to get right. In what I am not
+sure is a coincidence, it turns out the DNS Tree can also be used to perform
+DNS name compression.
+
+For every invocation of `putName()` in `DNSMessageWriter()` we check the DNS
+tree if it has a match on the full name, and if not, we add the name
+and its components of the name to a DNS tree. 
+
+This effectively gets us the desired compression behaviour, except special
+care has to be taken to not do wildcard processing.
 
 ## EDNS and truncation
 EDNS tells us that a larger buffer size is available. However, even with

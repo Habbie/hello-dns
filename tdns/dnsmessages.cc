@@ -56,6 +56,49 @@ bool DNSMessageReader::getEDNS(uint16_t* bufsize, bool* doBit) const
   return true;
 }
 
+void DNSMessageWriter::putName(const DNSName& name, bool compress)
+{
+  DNSName oname(name);
+  cout<<"Attempt to emit "<<oname<<" (compress = "<<compress<<")"<<endl;
+  DNSName fname(oname), flast;
+  auto node = d_comptree->find(fname, flast);
+
+  if(node) {
+    cout<<" Did lookup for "<<oname<<", left: "<<fname<<", node: "<<flast<<", pos: "<<node->namepos<<endl;
+    if(flast.size() > 1) {
+      uint16_t pos = node->namepos;
+      cout<<" Using the pointer we found to pos "<<pos<<", have to emit "<<fname.size()<<" labels first"<<endl;
+      auto opayloadpos = payloadpos;
+      for(const auto& lab : fname) {
+        putUInt8(lab.size());
+        putBlob(lab.d_s);
+      }
+      putUInt8((pos>>8) | 0xc0 );
+      putUInt8(pos & 0xff);
+      if(!fname.empty()) { // worth it to save this
+        auto anode = d_comptree->add(oname);
+        if(!anode->namepos) {
+          cout<<"Storing that "<<oname<<" can be found at "<<opayloadpos + 12 <<endl;
+          anode->namepos = opayloadpos + 12;
+        }
+      }
+      return;
+    }
+  }
+  
+  for(const auto& l : name) {
+    auto anode = d_comptree->add(oname);
+    if(!anode->namepos) {
+      cout<<"Storing that "<<oname<<" can be found at "<<payloadpos + 12 <<endl;
+      anode->namepos = payloadpos + 12;
+    }
+    oname.pop_front();
+    putUInt8(l.size());
+    putBlob(l.d_s);
+  }
+  putUInt8(0);
+}
+
 void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
   auto cursize = payloadpos;
@@ -110,31 +153,36 @@ DNSMessageWriter::DNSMessageWriter(const DNSName& name, DNSType type, int maxsiz
 
 void DNSMessageWriter::clearRRs()
 {
+  delete d_comptree;
+  d_comptree = new DNSNode;
   dh.qdcount = htons(1) ; dh.ancount = dh.arcount = dh.nscount = 0;
   payloadpos=0;
-  putName(d_qname);
+  putName(d_qname, false);
   putUInt16((uint16_t)d_qtype);
   putUInt16(1); // class
 }
 
-string DNSMessageWriter::serialize() const
+string DNSMessageWriter::serialize() 
 {
-  DNSMessageWriter act = *this;
   try {
-    if(haveEDNS) {
+    if(haveEDNS && dh.arcount == 0) {
       cout<<"Adding EDNS to DNS Message"<<endl;
-      act.putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
+      putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
     }
+    std::string ret((const char*)&dh, ((const char*)&dh) + sizeof(dnsheader));
+    ret.append((const unsigned char*)&payload.at(0), (const unsigned char*)&payload.at(payloadpos));
+    return ret;
   }
   catch(std::out_of_range& e) {
     cout<<"Got truncated while adding EDNS! Truncating"<<endl;
-    act.clearRRs();
-    act.dh.tc = 1; act.dh.aa = 0;
+    DNSMessageWriter act(d_qname, d_qtype);
+    act.dh = dh;
     act.putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
+    std::string ret((const char*)&act.dh, ((const char*)&act.dh) + sizeof(dnsheader));
+    ret.append((const unsigned char*)&act.payload.at(0), (const unsigned char*)&act.payload.at(act.payloadpos));
+    return ret;
   }
-  std::string ret((const char*)&act.dh, ((const char*)&act.dh) + sizeof(dnsheader));
-  ret.append((const unsigned char*)&act.payload.at(0), (const unsigned char*)&act.payload.at(act.payloadpos));
-  return ret;
+
 }
 
 void DNSMessageWriter::setEDNS(uint16_t newsize, bool doBit, RCode ercode)
