@@ -139,7 +139,7 @@ void DNSMessageWriter::putEDNS(uint16_t bufsize, RCode ercode, bool doBit)
     putUInt16(bufsize); putUInt8(((int)ercode)>>4); putUInt8(0); putUInt8(doBit ? 0x80 : 0); putUInt8(0);
     putUInt16(0);
   }
-  catch(...) {
+  catch(...) {  // went beyond message size
     payloadpos = cursize;
     throw;
   }
@@ -183,7 +183,6 @@ string DNSMessageWriter::serialize()
     ret.append((const unsigned char*)&act.payload.at(0), (const unsigned char*)&act.payload.at(act.payloadpos));
     return ret;
   }
-
 }
 
 void DNSMessageWriter::setEDNS(uint16_t newsize, bool doBit, RCode ercode)
