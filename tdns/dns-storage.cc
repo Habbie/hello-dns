@@ -102,9 +102,11 @@ std::ostream & operator<<(std::ostream &os, const DNSLabel& d)
       os<<'\\'<<setfill('0')<<setw(3)<<(int)a;
       setfill(' '); // setw resets itself
     }
-    else if((char)a =='.' || (char)a=='\\')
-      os<<"\\";
-    os<<(char)a;
+    else {
+      if((char)a =='.' || (char)a=='\\')
+        os<<"\\";
+      os<<(char)a;
+    }
   }
   return os;
 }
