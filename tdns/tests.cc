@@ -1,6 +1,6 @@
 #define CATCH_CONFIG_MAIN  // This tells Catch to provide a main() - only do this in one cpp file
 #include "catch.hpp"
-
+#include "dnsmessages.hh"
 #include "dns-storage.hh"
 
 using namespace std;
@@ -39,4 +39,16 @@ TEST_CASE("DNSName operations", "[dnsname]") {
 
   REQUIRE(test2.makeRelative({"org"}));
   REQUIRE(test2 == DNSName({"www", "powerdns"}));
+}
+
+TEST_CASE("DNS Messages", "[dnsmessage]") {
+  DNSName qname({"www", "powerdns", "com"}), rname;
+  DNSType rtype;
+  DNSMessageWriter dmw(qname, DNSType::SOA);
+  std::string ser = dmw.serialize();
+  DNSMessageReader dmr(ser);
+
+  dmr.getQuestion(rname, rtype);
+  REQUIRE(rname == qname);
+  REQUIRE(rtype == DNSType::SOA);
 }
