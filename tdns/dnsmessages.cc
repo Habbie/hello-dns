@@ -56,6 +56,8 @@ bool DNSMessageReader::getEDNS(uint16_t* bufsize, bool* doBit) const
   return true;
 }
 
+DNSMessageWriter::~DNSMessageWriter() = default;
+
 void DNSMessageWriter::putName(const DNSName& name, bool compress)
 {
   DNSName oname(name);
@@ -153,8 +155,7 @@ DNSMessageWriter::DNSMessageWriter(const DNSName& name, DNSType type, int maxsiz
 
 void DNSMessageWriter::clearRRs()
 {
-  delete d_comptree;
-  d_comptree = new DNSNode;
+  d_comptree = std::make_unique<DNSNode>();
   dh.qdcount = htons(1) ; dh.ancount = dh.arcount = dh.nscount = 0;
   payloadpos=0;
   putName(d_qname, false);

@@ -41,7 +41,7 @@ public:
   RCode d_ercode{(RCode)0};
 
   DNSMessageWriter(const DNSName& name, DNSType type, int maxsize=500);
-  ~DNSMessageWriter() { delete d_comptree;}
+  ~DNSMessageWriter();
   DNSMessageWriter(const DNSMessageWriter&) = delete;
   DNSMessageWriter& operator=(const DNSMessageWriter&) = delete;
   void clearRRs();
@@ -88,7 +88,7 @@ public:
   }
   void putName(const DNSName& name, bool compress=true);
 private:
-  DNSNode* d_comptree{0};
+  std::unique_ptr<DNSNode> d_comptree;
   void putEDNS(uint16_t bufsize, RCode ercode, bool doBit);
 };
 
