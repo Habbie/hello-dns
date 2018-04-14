@@ -44,6 +44,11 @@ void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DN
 
 bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddress& local, const ComboAddress& remote, DNSMessageWriter& response)
 {
+  if(dm.dh.qr) {
+    cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
+    return false; // should not send ANY kind of response, loop potential
+  }
+
   DNSName qname;
   DNSType qtype;
   dm.getQuestion(qname, qtype);
@@ -55,6 +60,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     response.dh.id = dm.dh.id; response.dh.rd = dm.dh.rd;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
     response.dh.qr = 1; response.dh.opcode = dm.dh.opcode;
+
     uint16_t newsize; bool doBit;
 
     if(dm.getEDNS(&newsize, &doBit)) {
@@ -189,10 +195,6 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
     string message = SRecvfrom(*sock, 512, remote);
     DNSMessageReader dm(message);
 
-    if(dm.dh.qr) {
-      cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
-      continue;
-    }
     DNSName qname;
     DNSType qtype;
     dm.getQuestion(qname, qtype);
@@ -206,7 +208,7 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
   }
 }
 
-void writeTCPResponse(int sock, DNSMessageWriter& response)
+static void writeTCPResponse(int sock, DNSMessageWriter& response)
 {
   string ser="00"+response.serialize();
   cout<<"Sending a message of "<<ser.size()<<" bytes in response"<<endl;
@@ -242,18 +244,19 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
     message = SRead(sock, len);
     DNSMessageReader dm(message);
 
-    if(dm.dh.qr) {
-      cerr<<"Dropping non-query from "<<remote.toStringWithPort()<<endl;
-      return;
-    }
-
     DNSName name;
     DNSType type;
     dm.getQuestion(name, type);
+
     DNSMessageWriter response(name, type, std::numeric_limits<uint16_t>::max());
-    
-    if(type == DNSType::AXFR) {
-      cout<<"Should do AXFR for "<<name<<endl;
+    response.d_nocompress = true;
+    if(type == DNSType::AXFR || type == DNSType::IXFR) {
+      if(dm.dh.opcode || dm.dh.qr) {
+        cerr<<"Dropping non-query AXFR from "<<remote.toStringWithPort()<<endl; // too weird
+        return;
+      }
+
+      cout<<"AXFR requested for "<<name<<endl;
 
       response.dh.id = dm.dh.id;
       response.dh.ad = response.dh.ra = response.dh.aa = 0;

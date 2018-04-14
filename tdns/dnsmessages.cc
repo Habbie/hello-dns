@@ -61,44 +61,54 @@ DNSMessageWriter::~DNSMessageWriter() = default;
 void DNSMessageWriter::putName(const DNSName& name, bool compress)
 {
   DNSName oname(name);
-  cout<<"Attempt to emit "<<oname<<" (compress = "<<compress<<")"<<endl;
+  cout<<"Attempt to emit "<<oname<<" (compress = "<<compress<<", d_nocompress= "<<d_nocompress<<")"<<endl;
   DNSName fname(oname), flast;
-  auto node = d_comptree->find(fname, flast);
 
-  if(node) {
-    cout<<" Did lookup for "<<oname<<", left: "<<fname<<", node: "<<flast<<", pos: "<<node->namepos<<endl;
-    if(flast.size() > 1) {
-      uint16_t pos = node->namepos;
-      cout<<" Using the pointer we found to pos "<<pos<<", have to emit "<<fname.size()<<" labels first"<<endl;
-      auto opayloadpos = payloadpos;
-      for(const auto& lab : fname) {
-        putUInt8(lab.size());
-        putBlob(lab.d_s);
-      }
-      putUInt8((pos>>8) | 0xc0 );
-      putUInt8(pos & 0xff);
-      if(!fname.empty()) { // worth it to save this
-        auto anode = d_comptree->add(oname);
-        if(!anode->namepos) {
-          cout<<"Storing that "<<oname<<" can be found at "<<opayloadpos + 12 <<endl;
-          anode->namepos = opayloadpos + 12;
+  if(compress && !d_nocompress)  {
+    auto node = d_comptree->find(fname, flast);
+    
+    if(node) {
+      cout<<" Did lookup for "<<oname<<", left: "<<fname<<", node: "<<flast<<", pos: "<<node->namepos<<endl;
+      if(flast.size() > 1) {
+        uint16_t pos = node->namepos;
+        cout<<" Using the pointer we found to pos "<<pos<<", have to emit "<<fname.size()<<" labels first"<<endl;
+        auto opayloadpos = payloadpos;
+        for(const auto& lab : fname) {
+          putUInt8(lab.size());
+          putBlob(lab.d_s);
         }
+        putUInt8((pos>>8) | 0xc0 );
+        putUInt8(pos & 0xff);
+        if(!fname.empty()) { // worth it to save the full name for future reference
+          auto anode = d_comptree->add(oname);
+          if(!anode->namepos) {
+            cout<<"Storing that "<<oname<<" can be found at "<<opayloadpos + 12 <<endl;
+            anode->namepos = opayloadpos + 12;
+          }
+        }
+        return;
       }
-      return;
     }
   }
-  
+  // if we are here, we know we need to write out the whole thing
   for(const auto& l : name) {
-    auto anode = d_comptree->add(oname);
-    if(!anode->namepos) {
-      cout<<"Storing that "<<oname<<" can be found at "<<payloadpos + 12 <<endl;
-      anode->namepos = payloadpos + 12;
+    if(!d_nocompress) { // even with compress=false, we want to store this name, unless this is a nocompress message (AXFR)
+      auto anode = d_comptree->add(oname);
+      if(!anode->namepos) {
+        //        cout<<"Storing that "<<oname<<" can be found at "<<payloadpos + 12 <<endl;
+        anode->namepos = payloadpos + 12;
+      }
     }
     oname.pop_front();
     putUInt8(l.size());
     putBlob(l.d_s);
   }
   putUInt8(0);
+}
+
+static void nboInc(uint16_t& counter) // network byte order inc
+{
+  counter = htons(ntohs(counter) + 1);  
 }
 
 void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
@@ -120,13 +130,15 @@ void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType ty
     case DNSSection::Question:
       throw runtime_error("Can't add questions to a DNS Message with putRR");
     case DNSSection::Answer:
-      dh.ancount = htons(ntohs(dh.ancount) + 1);
+      if(dh.nscount || dh.arcount) throw runtime_error("Can't add answer RRs out of order to a DNS Message");
+      nboInc(dh.ancount);
       break;
     case DNSSection::Authority:
-      dh.nscount = htons(ntohs(dh.nscount) + 1);
+      if(dh.arcount) throw runtime_error("Can't add authority RRs out of order to a DNS Message");
+      nboInc(dh.nscount);
       break;
     case DNSSection::Additional:
-      dh.arcount = htons(ntohs(dh.arcount) + 1);
+      nboInc(dh.arcount);
       break;
   }
 }
@@ -139,11 +151,11 @@ void DNSMessageWriter::putEDNS(uint16_t bufsize, RCode ercode, bool doBit)
     putUInt16(bufsize); putUInt8(((int)ercode)>>4); putUInt8(0); putUInt8(doBit ? 0x80 : 0); putUInt8(0);
     putUInt16(0);
   }
-  catch(...) {  // went beyond message size
+  catch(...) {  // went beyond message size, roll it all back
     payloadpos = cursize;
     throw;
   }
-  dh.arcount = htons(ntohs(dh.arcount)+1);
+  nboInc(dh.arcount);
 }
 
 DNSMessageWriter::DNSMessageWriter(const DNSName& name, DNSType type, int maxsize) : d_qname(name), d_qtype(type)

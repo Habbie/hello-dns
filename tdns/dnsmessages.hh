@@ -38,6 +38,7 @@ public:
   DNSClass d_qclass;
   bool haveEDNS{false};
   bool d_doBit;
+  bool d_nocompress{false}; // if set, never compress. For AXFR/IXFR
   RCode d_ercode{(RCode)0};
 
   DNSMessageWriter(const DNSName& name, DNSType type, int maxsize=500);

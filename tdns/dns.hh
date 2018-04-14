@@ -1,4 +1,6 @@
 #pragma once
+#include <stdint.h>
+// note - some platforms are confused over these #defines. Specifically, BYTE_ORDER without __ is a false prophet and may lie!
 struct dnsheader {
         unsigned        id :16;         /* query identification number */
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -29,10 +31,10 @@ struct dnsheader {
         unsigned        ra :1;          /* recursion available */
 #endif
                         /* remaining bytes */
-        unsigned        qdcount :16;    /* number of question entries */
-        unsigned        ancount :16;    /* number of answer entries */
-        unsigned        nscount :16;    /* number of authority entries */
-        unsigned        arcount :16;    /* number of resource entries */
+        uint16_t        qdcount;    /* number of question entries */
+        uint16_t        ancount;    /* number of answer entries */
+        uint16_t        nscount;    /* number of authority entries */
+        uint16_t        arcount;    /* number of resource entries */
 };
 
 static_assert(sizeof(dnsheader) == 12, "dnsheader size must be 12");
