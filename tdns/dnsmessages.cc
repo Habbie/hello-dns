@@ -8,19 +8,20 @@ DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
   if(size < sizeof(dnsheader))
     throw std::runtime_error("DNS message too small");
   memcpy(&dh, in, sizeof(dh));
-  auto rest = size-sizeof(dh);
-  memcpy(&payload.payload.at(rest)-rest, in+sizeof(dh), rest);
+  payload.reserve(size-12);
+  payload.insert(payload.begin(), (const unsigned char*)in + 12, (const unsigned char*)in + size);
+
   d_qname = getName();
-  d_qtype = (DNSType) payload.getUInt16();
-  d_qclass = (DNSClass) payload.getUInt16();
+  d_qtype = (DNSType) getUInt16();
+  d_qclass = (DNSClass) getUInt16();
   if(dh.arcount) {
-    if(payload.getUInt8() == 0 && payload.getUInt16() == (uint16_t)DNSType::OPT) {
-      d_bufsize=payload.getUInt16();
-      payload.getUInt8(); // extended RCODE
-      d_ednsVersion = payload.getUInt8(); 
-      auto flags = payload.getUInt8();
+    if(getUInt8() == 0 && getUInt16() == (uint16_t)DNSType::OPT) {
+      d_bufsize=getUInt16();
+      getUInt8(); // extended RCODE
+      d_ednsVersion = getUInt8(); 
+      auto flags = getUInt8();
       d_doBit = flags & 0x80;
-      payload.getUInt8(); payload.getUInt16(); // ignore rest
+      getUInt8(); getUInt16(); // ignore rest
       cout<<"   There was an EDNS section, size supported: "<< d_bufsize<<endl;
       d_haveEDNS = true;
     }
@@ -31,12 +32,12 @@ DNSName DNSMessageReader::getName()
 {
   DNSName name;
   for(;;) {
-    uint8_t labellen=payload.getUInt8();
+    uint8_t labellen=getUInt8();
     if(labellen > 63)
       throw std::runtime_error("Got a compressed label");
     if(!labellen) // end of DNSName
       break;
-    DNSLabel label = payload.getBlob(labellen);
+    DNSLabel label = getBlob(labellen);
     name.push_back(label);
   }
   return name;

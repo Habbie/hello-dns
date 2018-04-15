@@ -1,8 +1,8 @@
 #pragma once
 #include "dns.hh"
-#include "safearray.hh"
 #include "dns-storage.hh"
 #include "record-types.hh"
+#include <arpa/inet.h>
 #include <vector>
 
 class DNSMessageReader
@@ -11,13 +11,34 @@ public:
   DNSMessageReader(const char* input, uint16_t length);
   DNSMessageReader(const std::string& str) : DNSMessageReader(str.c_str(), str.size()) {}
   struct dnsheader dh=dnsheader{};
-  SafeArray<500> payload;
-
+  std::vector<uint8_t> payload;
+  uint16_t payloadpos{0};
+  
   void getQuestion(DNSName& name, DNSType& type) const;
   bool getEDNS(uint16_t* newsize, bool* doBit) const;
   uint8_t d_ednsVersion{0};
 private:
   DNSName getName();
+  uint8_t getUInt8()
+  {
+    return payload.at(payloadpos++);
+  }
+  
+  uint16_t getUInt16()
+  {
+    uint16_t ret;
+    memcpy(&ret, &payload.at(payloadpos+1)-1, 2);
+    payloadpos+=2;
+    return htons(ret);
+  }
+  
+  std::string getBlob(int size)
+  {
+    std::string ret(&payload.at(payloadpos), &payload.at(payloadpos+size));
+    payloadpos += size;
+    return ret;
+  }
+
   DNSName d_qname;
   DNSType d_qtype;
   DNSClass d_qclass;
