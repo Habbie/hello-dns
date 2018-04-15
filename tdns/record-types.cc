@@ -53,9 +53,14 @@ void MXGen::toMessage(DNSMessageWriter& dmw)
 
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
-  // XXX should autosplit
-  dmw.putUInt8(d_txt.length());
-  dmw.putBlob(d_txt);
+  for(auto segment: d_txts) {
+    while(segment.length() > 0) {
+      const auto fragment = segment.substr(0, 254);
+      dmw.putUInt8(fragment.length());
+      dmw.putBlob(fragment);
+      segment.erase(0, fragment.length());
+    }
+  }
 }
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 

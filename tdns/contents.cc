@@ -40,6 +40,8 @@ void loadZones(DNSNode& zones)
   newzone->add({"ent", "was", "here"})->addRRs(TXTGen::make("plenum"));
   newzone->add({"some.embedded.dots"})->addRRs(TXTGen::make("what do the dots look like?"));
 
+  newzone->add({"split"})->addRRs(TXTGen::make("hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello world hello"));
+  newzone->add({"split"})->addRRs(TXTGen::make({{"this is the first part"},{"this is the second part"}}));
 
   const char zero[]="name-does-not-stop-here\x0-it-goes-on";
   std::string zstring(zero, sizeof(zero)-1);
