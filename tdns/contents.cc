@@ -4,7 +4,7 @@
 void loadZones(DNSNode& zones)
 {
   auto zone = zones.add({"tdns", "powerdns", "org"});
-  auto newzone = zone->zone = new DNSNode(); // XXX ICK
+  auto newzone = std::make_unique<DNSNode>(); 
   
   newzone->addRRs(SOAGen::make({"ns1", "tdns", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1),
                   NSGen::make({"ns1", "tdns", "powerdns", "org"}), 
@@ -53,4 +53,6 @@ void loadZones(DNSNode& zones)
 
   newzone->add({"some host"})->addRRs(AGen::make("192.0.0.2"));
   newzone->add({"some.host"})->addRRs(AGen::make("192.0.0.3"));
+
+  zone->zone = std::move(newzone);
 }

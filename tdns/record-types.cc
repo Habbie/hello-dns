@@ -1,5 +1,10 @@
 #include "record-types.hh"
 
+void UnknownGen::toMessage(DNSMessageWriter& dmw)
+{
+  dmw.xfrBlob(d_rr);
+}
+
 std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
 {
   return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
@@ -7,7 +12,7 @@ std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
 
 void AGen::toMessage(DNSMessageWriter& dmw)
 {
-  dmw.putUInt32(d_ip);
+  dmw.xfrUInt32(d_ip);
 }
 
 std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
@@ -23,39 +28,70 @@ std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
 
 void AAAAGen::toMessage(DNSMessageWriter& dmw)
 {
-  dmw.putBlob(d_ip, 16);
+  dmw.xfrBlob(d_ip, 16);
+}
+
+SOAGen::SOAGen(DNSMessageReader& dmr)
+{
+  dmr.xfrName(d_mname);    dmr.xfrName(d_rname);
+  dmr.xfrUInt32(d_serial);  dmr.xfrUInt32(d_refresh);
+  dmr.xfrUInt32(d_retry);   dmr.xfrUInt32(d_expire);
+  dmr.xfrUInt32(d_minimum);
 }
 
 void SOAGen::toMessage(DNSMessageWriter& dmw)
 {
-  dmw.putName(d_mname);    dmw.putName(d_rname);
-  dmw.putUInt32(d_serial);  dmw.putUInt32(d_refresh);
-  dmw.putUInt32(d_retry);   dmw.putUInt32(d_expire);
-  dmw.putUInt32(d_minimum);
+  dmw.xfrName(d_mname);    dmw.xfrName(d_rname);
+  dmw.xfrUInt32(d_serial);  dmw.xfrUInt32(d_refresh);
+  dmw.xfrUInt32(d_retry);   dmw.xfrUInt32(d_expire);
+  dmw.xfrUInt32(d_minimum);
 }
 
-void CNAMEGen::toMessage(DNSMessageWriter& dmw)
+CNAMEGen::CNAMEGen(DNSMessageReader& x)
 {
-  dmw.putName(d_name);
+  x.xfrName(d_name);
+}
+void CNAMEGen::toMessage(DNSMessageWriter& x)
+{
+  x.xfrName(d_name);
 }
 
-void NSGen::toMessage(DNSMessageWriter& dmw)
+PTRGen::PTRGen(DNSMessageReader& x)
 {
-  dmw.putName(d_name);
+  x.xfrName(d_name);
+}
+void PTRGen::toMessage(DNSMessageWriter& x)
+{
+  x.xfrName(d_name);
 }
 
-
-void MXGen::toMessage(DNSMessageWriter& dmw) 
+NSGen::NSGen(DNSMessageReader& x)
 {
-  dmw.putUInt16(d_prio);
-  dmw.putName(d_name);
+  x.xfrName(d_name);
+}
+
+void NSGen::toMessage(DNSMessageWriter& x)
+{
+  x.xfrName(d_name);
+}
+
+MXGen::MXGen(DNSMessageReader& x)
+{
+  x.xfrUInt16(d_prio);
+  x.xfrName(d_name);
+}
+
+void MXGen::toMessage(DNSMessageWriter& x) 
+{
+  x.xfrUInt16(d_prio);
+  x.xfrName(d_name);
 }
 
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
-  // XXX should autosplit
-  dmw.putUInt8(d_txt.length());
-  dmw.putBlob(d_txt);
+  // XXX should autosplit or throw
+  dmw.xfrUInt8(d_txt.length());
+  dmw.xfrBlob(d_txt);
 }
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 

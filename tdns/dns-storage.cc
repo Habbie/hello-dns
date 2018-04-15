@@ -27,11 +27,13 @@ DNSName operator+(const DNSName& a, const DNSName& b)
   return ret;
 }
 
+DNSNode::~DNSNode() = default; 
+
 const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const DNSNode** passedZonecut, DNSName* zonecutname) const
 {
-  cout<<"find called for '"<<name<<"', last is now '"<<last<<"'"<<endl;
+  //  cout<<"find called for '"<<name<<"', last is now '"<<last<<"'"<<endl;
   if(!last.empty() && rrsets.count(DNSType::NS)) {
-    cout<<"  passed a zonecut, making note of this"<<endl;
+    //    cout<<"  passed a zonecut, making note of this"<<endl;
     if(passedZonecut)
       *passedZonecut=this;
     if(zonecutname)
@@ -39,35 +41,36 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const 
   }
 
   if(name.empty()) {
-    cout<<"Empty lookup name. Returning node with following types: ";
-    for(const auto& c : rrsets)
-      cout<<c.first<<" ";
-    cout<<endl;
+    //    cout<<"Empty lookup name. Returning node with following types: ";
+    //    for(const auto& c : rrsets)
+    //      cout<<c.first<<" ";
+    //    cout<<endl;
     return this;
   }
-  cout<<"Children at this node: ";
+  /*  cout<<"Children at this node: ";
   for(const auto& c: children) cout <<"'"<<c.first<<"' ";
   cout<<endl;
+  */
   auto iter = children.find(name.back());
-  cout<<"Looked for child called '"<<name.back()<<"'"<<endl;
+  //  cout<<"Looked for child called '"<<name.back()<<"'"<<endl;
   if(iter == children.end()) {
     if(!wildcard)
       return this;
-    cout<<"Found nothing, trying wildcard"<<endl;
+    //    cout<<"Found nothing, trying wildcard"<<endl;
     iter = children.find("*");
     if(iter == children.end()) {
-      cout<<"Still nothing, returning this node"<<endl;
+      //      cout<<"Still nothing, returning this node"<<endl;
       return this;
     }
     else {
-      cout<<"  Had wildcard match, picking that, matching all labels"<<endl;
+      //      cout<<"  Had wildcard match, picking that, matching all labels"<<endl;
       while(name.size() > 1) {
         last.push_front(name.back());
         name.pop_back();
       }
     }
   }
-  cout<<"  Had match at this node , continuing to child '"<<iter->first<<"'"<<endl;
+  //  cout<<"  Had match at this node , continuing to child '"<<iter->first<<"'"<<endl;
   last.push_front(name.back());
   name.pop_back();
   return iter->second.find(name, last, wildcard, passedZonecut, zonecutname);
@@ -75,9 +78,7 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const 
 
 DNSNode* DNSNode::add(DNSName name) 
 {
-  if(name.size() == 1) { // this is our home node
-    return &children[name.front()];
-  }
+  if(name.empty()) return this;
   auto back = name.back();
   name.pop_back();
   return children[back].add(name); // will make child node if needed

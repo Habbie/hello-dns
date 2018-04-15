@@ -94,7 +94,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     cout<<"---\nFound best zone: "<<zonename<<", qname now "<<qname<<endl;
     response.dh.aa = 1; 
     
-    auto bestzone = fnd->zone;
+    auto bestzone = fnd->zone.get();
     DNSName searchname(qname), lastnode, zonecutname;
     const DNSNode* passedZonecut=0;
     int CNAMELoopCount = 0;
@@ -207,14 +207,27 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
   }
 }
 
-static void writeTCPResponse(int sock, DNSMessageWriter& response)
+static void writeTCPMessage(int sock, DNSMessageWriter& response)
 {
   string ser="00"+response.serialize();
-  cout<<"Sending a message of "<<ser.size()<<" bytes in response"<<endl;
+  //  cout<<"Sending a message of "<<ser.size()<<" bytes in response"<<endl;
   uint16_t len = htons(ser.length()-2);
   ser[0] = *((char*)&len);
   ser[1] = *(((char*)&len) + 1);
   SWriten(sock, ser);
+}
+
+uint16_t tcpGetLen(int sock)
+{
+  string message = SRead(sock, 2);
+  if(message.empty())
+    return 0;
+  if(message.size() != 2) {
+    throw std::runtime_error("Incomplete TCP/IP message");
+  }
+  uint16_t len;
+  memcpy(&len, &message.at(1)-1, 2);
+  return htons(len);
 }
 
 void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNode* zones)
@@ -222,14 +235,9 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
   Socket sock(s);
   cout<<"TCP Connection from "<<remote.toStringWithPort()<<endl;
   for(;;) {
-    uint16_t len;
-    
-    string message = SRead(sock, 2);
-    if(message.size() != 2)
-      break;
-    memcpy(&len, &message.at(1)-1, 2);
-    len=htons(len);
-    
+    uint16_t len=tcpGetLen(sock);
+    if(!len)
+      return;
     if(len > 512) {
       cerr<<"Remote "<<remote.toStringWithPort()<<" sent question that was too big"<<endl;
       return;
@@ -240,15 +248,15 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       return;
     }
 
-    message = SRead(sock, len);
+    std::string message = SRead(sock, len);
     DNSMessageReader dm(message);
 
     DNSName name;
     DNSType type;
     dm.getQuestion(name, type);
 
-    DNSMessageWriter response(name, type, std::numeric_limits<uint16_t>::max());
-    response.d_nocompress = true;
+    DNSMessageWriter response(name, type, 16384);
+    //    response.d_nocompress = true;
     if(type == DNSType::AXFR || type == DNSType::IXFR) {
       if(dm.dh.opcode || dm.dh.qr) {
         cerr<<"Dropping non-query AXFR from "<<remote.toStringWithPort()<<endl; // too weird
@@ -266,17 +274,17 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
       if(!fnd || !fnd->zone || !name.empty() || !fnd->zone->rrsets.count(DNSType::SOA)) {
         cout<<"   This was not a zone, or zone had no SOA"<<endl;
         response.dh.rcode = (int)RCode::Refused;
-        writeTCPResponse(sock, response);
+        writeTCPMessage(sock, response);
         continue;
       }
       cout<<"Have zone, walking it"<<endl;
 
-      auto node = fnd->zone;
+      auto node = fnd->zone.get();
 
       // send SOA
       response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
 
-      writeTCPResponse(sock, response);
+      writeTCPMessage(sock, response);
       response.clearRRs();
 
       // send all other records
@@ -290,7 +298,7 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
                 response.putRR(DNSSection::Answer, nname, p.first, p.second.ttl, rr);
               }
               catch(std::out_of_range& e) { // exceeded packet size 
-                writeTCPResponse(sock, response);
+                writeTCPMessage(sock, response);
                 response.clearRRs();
                 goto retry;
               }
@@ -298,23 +306,66 @@ void tcpClientThread(ComboAddress local, ComboAddress remote, int s, const DNSNo
           }
         }, zone);
 
-      writeTCPResponse(sock, response);
+      writeTCPMessage(sock, response);
       response.clearRRs();
 
       // send SOA again
       response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
 
-      writeTCPResponse(sock, response);
+      writeTCPMessage(sock, response);
       return;
     }
     else {
       if(processQuestion(*zones, dm, local, remote, response)) {
-        writeTCPResponse(sock, response);
+        writeTCPMessage(sock, response);
       }
       else
         return;
     }
   }
+}
+
+std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName& zone)
+{
+  cout<<"Attempting to retrieve zone "<<zone<<" from "<<remote.toStringWithPort()<<endl;
+  Socket tcp(remote.sin4.sin_family, SOCK_STREAM);
+  SConnect(tcp, remote);
+
+  DNSMessageWriter dmw(zone, DNSType::AXFR);
+  writeTCPMessage(tcp, dmw);
+
+  auto ret = std::make_unique<DNSNode>();
+  
+  int soaCount=0;
+  for(;;) {
+    uint16_t len = tcpGetLen(tcp);
+    string message = SRead(tcp, len);
+    
+    cout<<"Got "<<message.length()<<" bytes out of "<<len<<endl;
+    DNSMessageReader dmr(message);
+
+    if(dmr.dh.rcode != (int)RCode::Noerror) {
+      cout<<"Got error "<<dmr.dh.rcode<<" from auth "<<remote.toStringWithPort()<< " when attempting to retrieve "<<zone<<endl;
+      return std::unique_ptr<DNSNode>();
+    }
+    
+    DNSName rrname;
+    DNSType rrtype;
+    DNSSection rrsection;
+    uint32_t ttl;
+    std::unique_ptr<RRGen> rr;
+    while(dmr.getRR(rrsection, rrname, rrtype, ttl, rr)) {
+      if(!rrname.makeRelative(zone))
+        continue;
+      if(rrtype == DNSType::SOA && ++soaCount==2)
+        goto done;
+      ret->add(rrname)->addRRs(std::move(rr));
+      ret->add(rrname)->rrsets[rrtype].ttl = ttl;
+    }
+  }
+ done:
+  cout<<"Done"<<endl;
+  return ret;
 }
 
 int main(int argc, char** argv)
@@ -325,6 +376,7 @@ try
     return(EXIT_FAILURE);
   }
   signal(SIGPIPE, SIG_IGN);
+
   ComboAddress local(argv[1], 53);
 
   Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
@@ -337,6 +389,12 @@ try
   
   DNSNode zones;
   loadZones(zones);
+
+  /*
+  zones.add({})->zone=retrieveZone(ComboAddress("2001:500:2f::f", 53), {});
+  zones.add({"hubertnet", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"hubertnet", "nl"});
+  zones.add({"ds9a", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"ds9a", "nl"});
+  */
   
   thread udpServer(udpThread, local, &udplistener, &zones);
 

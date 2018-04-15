@@ -53,12 +53,13 @@ SMARTENUMEND(RCode)
 
 enum class DNSType : uint16_t
 {
-  A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, OPT=41, IXFR = 251, AXFR = 252, ANY = 255
+  A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, DS=43, RRSIG=46,
+  NSEC=47, OPT=41, IXFR = 251, AXFR = 252, ANY = 255
 };
 
 SMARTENUMSTART(DNSType)
-SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, IXFR, AAAA, SRV, OPT, IXFR)
-SENUM2(DNSType, AXFR, ANY)
+SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, SRV,DS, RRSIG, NSEC, OPT)
+SENUM3(DNSType, IXFR, AXFR, ANY)
 SMARTENUMEND(DNSType)
 
 enum class DNSClass : uint16_t
@@ -114,6 +115,7 @@ struct RRSet
 
 struct DNSNode
 {
+  ~DNSNode();
   const DNSNode* find(DNSName& name, DNSName& last, bool wildcards=false, const DNSNode** passedZonecut=0, DNSName* zonecutname=0) const;
   DNSNode* add(DNSName name);
   std::map<DNSLabel, DNSNode> children;
@@ -129,7 +131,7 @@ struct DNSNode
   void visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const;
 
   std::map<DNSType, RRSet > rrsets;
-  DNSNode* zone{0}; // if this is set, this node is a zone
+  std::unique_ptr<DNSNode> zone; // if this is set, this node is a zone
   uint16_t namepos{0};
 };
 
