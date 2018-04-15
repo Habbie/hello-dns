@@ -90,14 +90,22 @@ struct MXGen : RRGen
 
 struct TXTGen : RRGen
 {
-  TXTGen(const std::string& txt) : d_txt(txt) {}
+  TXTGen(const std::vector<std::string>& txts) : d_txts(txts) {}
+  TXTGen(const std::string& txt) : d_txts({txt}) {}
+
+  static std::unique_ptr<RRGen> make(const std::vector<std::string>& txts)
+  {
+    return std::make_unique<TXTGen>(txts);
+  }
+
   static std::unique_ptr<RRGen> make(const std::string& txt)
   {
     return std::make_unique<TXTGen>(txt);
   }
+
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::TXT; }
-  std::string d_txt;
+  std::vector<std::string> d_txts;
 };
 
 struct ClockTXTGen : RRGen
