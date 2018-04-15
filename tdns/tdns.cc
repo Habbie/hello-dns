@@ -8,7 +8,6 @@
 #include <stdexcept>
 #include "sclasses.hh"
 #include "dns.hh"
-#include "safearray.hh"
 #include <thread>
 #include <signal.h>
 #include "record-types.hh"
