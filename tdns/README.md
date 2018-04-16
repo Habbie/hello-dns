@@ -35,11 +35,11 @@ Non-goals are:
  * Implementing more features (unless very educational)
 
 # Current status
-All 'basic DNS' items are implemented.
+All 'basic DNS' items are implemented:
 
- * A, AAAA, NS, MX, CNAME, TXT, SOA
+ * A, AAAA, CNAME, MX, NS, PTR, SOA, TXT, "Unknown"
  * UDP & TCP
- * AXFR
+ * AXFR (incoming and outgoing)
  * Wildcards
  * Delegations
  * Glue records
@@ -50,16 +50,10 @@ As a bonus:
  * EDNS (buffer size, no options)
 
 Missing:
- * ~~DNS Compression (may not fit in, say, 1200 lines!)~~
  * SRV and NAPTR would be nice
 
 Known broken:
- * ~~Embedded 0s in DNS labels don't yet work~~
- * ~~Case-insensitive comparison isn't 100% correct~~
- * ~~RCode after one CNAME chase~~
- * ~~On output (to screen) we do not escape DNS names correctly~~
  * TCP/IP does not follow recommended timeouts
- * ~~EDNS is a bit clunky and should move into DNSMessageWriter~~
 
 The code is not quite in a teachable state yet and still contains ugly bits. 
 But well worth [a
