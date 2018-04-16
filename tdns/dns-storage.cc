@@ -2,6 +2,7 @@
 #include <iomanip>
 using namespace std;
 
+//! Makes us relative to 'root', returns false if we weren't part of root
 bool DNSName::makeRelative(const DNSName& root)
 {
   auto us = d_name, them=root.d_name;
@@ -19,6 +20,7 @@ bool DNSName::makeRelative(const DNSName& root)
   return true;
 }
 
+//! Append two DNSNames
 DNSName operator+(const DNSName& a, const DNSName& b)
 {
   DNSName ret=a;
@@ -29,11 +31,10 @@ DNSName operator+(const DNSName& a, const DNSName& b)
 
 DNSNode::~DNSNode() = default; 
 
+//! The big RFC 1034-compatible find function. Will perform wildcard synth if requested
 const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const DNSNode** passedZonecut, DNSName* zonecutname) const
 {
-  //  cout<<"find called for '"<<name<<"', last is now '"<<last<<"'"<<endl;
   if(!last.empty() && rrsets.count(DNSType::NS)) {
-    //    cout<<"  passed a zonecut, making note of this"<<endl;
     if(passedZonecut)
       *passedZonecut=this;
     if(zonecutname)
@@ -41,41 +42,33 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const 
   }
 
   if(name.empty()) {
-    //    cout<<"Empty lookup name. Returning node with following types: ";
-    //    for(const auto& c : rrsets)
-    //      cout<<c.first<<" ";
-    //    cout<<endl;
     return this;
   }
-  /*  cout<<"Children at this node: ";
-  for(const auto& c: children) cout <<"'"<<c.first<<"' ";
-  cout<<endl;
-  */
   auto iter = children.find(name.back());
-  //  cout<<"Looked for child called '"<<name.back()<<"'"<<endl;
+
   if(iter == children.end()) {
     if(!wildcard)
       return this;
-    //    cout<<"Found nothing, trying wildcard"<<endl;
+
     iter = children.find("*");
-    if(iter == children.end()) {
-      //      cout<<"Still nothing, returning this node"<<endl;
+    if(iter == children.end()) { // also no wildcard
       return this;
     }
     else {
-      //      cout<<"  Had wildcard match, picking that, matching all labels"<<endl;
+      //  Had wildcard match, picking that, matching all labels
       while(name.size() > 1) {
         last.push_front(name.back());
         name.pop_back();
       }
     }
   }
-  //  cout<<"  Had match at this node , continuing to child '"<<iter->first<<"'"<<endl;
-  last.push_front(name.back());
-  name.pop_back();
+
+  last.push_front(name.back()); // this grows the part that we matched
+  name.pop_back();              // and removes same parts from name
   return iter->second.find(name, last, wildcard, passedZonecut, zonecutname);
 }
 
+//! Idempotent way of creating/accessing the DNSName in a tree
 DNSNode* DNSNode::add(DNSName name) 
 {
   if(name.empty()) return this;
@@ -84,6 +77,7 @@ DNSNode* DNSNode::add(DNSName name)
   return children[back].add(name); // will make child node if needed
 }
 
+//! Used to travel the tree, 'visitor' gets called on all nodes
 void DNSNode::visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const
 {
   visitor(name, this);
@@ -96,6 +90,7 @@ void DNSNode::addRRs(std::unique_ptr<RRGen>&&a)
   rrsets[a->getType()].add(std::move(a));
 }
 
+// Emit an escaped DNSLabel in 'master file' format
 std::ostream & operator<<(std::ostream &os, const DNSLabel& d)
 {
   for(uint8_t a : d.d_s) {
@@ -112,6 +107,7 @@ std::ostream & operator<<(std::ostream &os, const DNSLabel& d)
   return os;
 }
 
+// emit a DNSName
 std::ostream & operator<<(std::ostream &os, const DNSName& d)
 {
   if(d.empty()) os<<'.';
@@ -120,6 +116,7 @@ std::ostream & operator<<(std::ostream &os, const DNSName& d)
   return os;
 }
 
+// Convenience function, turns DNSName into master file format string
 std::string DNSName::toString() const
 {
   ostringstream str;

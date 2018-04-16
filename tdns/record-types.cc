@@ -1,6 +1,8 @@
 #include "record-types.hh"
 #include <iomanip>
 
+/* this exploits the similarity in writing/reading DNS messages
+   and outputting master file format text */
 struct StringBuilder
 {
   explicit StringBuilder(std::string& str) : d_string(str) {}
@@ -22,30 +24,6 @@ struct StringBuilder
   std::string& d_string;
 };
 
-void UnknownGen::toMessage(DNSMessageWriter& dmw)
-{
-  dmw.xfrBlob(d_rr);
-}
-
-std::string UnknownGen::toString() const
-{
-  std::ostringstream ret;
-  ret<< "\\# " + std::to_string(d_rr.size());
-  if(!d_rr.empty()) {
-    ret<<" ";
-    ret<< std::setw(2) << std::setbase(16) << std::setfill('0');
-    
-    for(const auto& c : d_rr) {
-      ret<<(unsigned int)(unsigned char)c;
-    }
-  }
-  return ret.str();
-}
-
-std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
-{
-  return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
-}
 
 AGen::AGen(DNSMessageReader& x)
 {
@@ -63,6 +41,8 @@ std::string AGen::toString() const
   ca.sin4.sin_addr.s_addr = ntohl(d_ip);
   return ca.toString();
 }
+
+//////////////////////////
 
 std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
 {
@@ -95,6 +75,8 @@ std::string AAAAGen::toString() const
   return ca.toString();
 }
 
+////////////////////////////////////////
+
 void SOAGen::doConv(auto& x) 
 {
   x.xfrName(d_mname);    x.xfrName(d_rname);
@@ -120,6 +102,7 @@ std::string SOAGen::toString() const
   const_cast<SOAGen*>(this)->doConv(sb);
   return ret;
 }
+///////////////////////////////
 
 CNAMEGen::CNAMEGen(DNSMessageReader& x)
 {
@@ -134,6 +117,8 @@ std::string CNAMEGen::toString() const
   return d_name.toString();
 }
 
+////////////////////////////////
+
 PTRGen::PTRGen(DNSMessageReader& x)
 {
   x.xfrName(d_name);
@@ -146,7 +131,7 @@ std::string PTRGen::toString() const
 {
   return d_name.toString();
 }
-
+///////////////////////////////////
 
 NSGen::NSGen(DNSMessageReader& x)
 {
@@ -160,6 +145,8 @@ std::string NSGen::toString() const
 {
   return d_name.toString();
 }
+
+///////////////////
 
 MXGen::MXGen(DNSMessageReader& x)
 {
@@ -176,6 +163,7 @@ std::string MXGen::toString() const
   return std::to_string(d_prio)+" "+d_name.toString();
 }
 
+/////////////////////////////
 
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
@@ -188,6 +176,34 @@ std::string TXTGen::toString() const
 {
   return "\""+ d_txt + "\""; // XXX should escape
 }
+
+/////////////////////////////
+
+void UnknownGen::toMessage(DNSMessageWriter& dmw)
+{
+  dmw.xfrBlob(d_rr);
+}
+
+std::string UnknownGen::toString() const
+{
+  std::ostringstream ret;
+  ret<< "\\# " + std::to_string(d_rr.size());
+  if(!d_rr.empty()) {
+    ret<<" ";
+    ret<< std::setw(2) << std::setbase(16) << std::setfill('0');
+    
+    for(const auto& c : d_rr) {
+      ret<<(unsigned int)(unsigned char)c;
+    }
+  }
+  return ret.str();
+}
+
+std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
+{
+  return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
+}
+
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 
 {

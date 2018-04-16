@@ -10,43 +10,13 @@
 #include <memory>
 #include "nenum.hh"
 
-class DNSLabel
-{
-public:
-  DNSLabel() {}
-  DNSLabel(const char* s) : DNSLabel(std::string(s)) {} 
-  DNSLabel(const std::string& s) : d_s(s)
-  {
-    if(d_s.size() > 63)
-      throw std::out_of_range("label too long");
-  }
-  bool operator<(const DNSLabel& rhs) const
-  {
-    return std::lexicographical_compare(d_s.begin(), d_s.end(), rhs.d_s.begin(), rhs.d_s.end(), charcomp);
-  }
-  bool operator==(const DNSLabel &rhs) const
-  {
-    return !(*this < rhs) && !(rhs<*this);
-  }
-  auto size() const { return d_s.size(); }
-  std::string d_s;
-private:
-  static bool charcomp(char a, char b)
-  {
-    if(a >= 0x61 && a <= 0x7A)
-      a -= 0x20;
-    if(b >= 0x61 && b <= 0x7A)
-      b -= 0x20;
-    return a < b;
-  }
-};
-std::ostream & operator<<(std::ostream &os, const DNSLabel& d);
-
+// enums
 enum class RCode 
 {
   Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5, Badvers=16
 };
 
+// this makes enums printable, which is nice
 SMARTENUMSTART(RCode)
 SENUM6(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused, Badvers)
 SMARTENUMEND(RCode)
@@ -70,6 +40,44 @@ SMARTENUMSTART(DNSClass) SENUM2(DNSClass, IN, CHAOS) SMARTENUMEND(DNSClass)
 
 COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3)
 
+
+//! Represents a DNS label, which is part of a DNS Name
+class DNSLabel
+{
+public:
+  DNSLabel() {}
+  DNSLabel(const char* s) : DNSLabel(std::string(s)) {} 
+  DNSLabel(const std::string& s) : d_s(s)
+  {
+    if(d_s.size() > 63)
+      throw std::out_of_range("label too long");
+  }
+  //! Equality and comparison are case insensitive
+  bool operator<(const DNSLabel& rhs) const
+  {
+    return std::lexicographical_compare(d_s.begin(), d_s.end(), rhs.d_s.begin(), rhs.d_s.end(), charcomp);
+  }
+  
+  bool operator==(const DNSLabel &rhs) const
+  {
+    return !(*this < rhs) && !(rhs<*this);
+  }
+  auto size() const { return d_s.size(); }
+  std::string d_s;
+private:
+  static bool charcomp(char a, char b)
+  {
+    if(a >= 0x61 && a <= 0x7A)
+      a -= 0x20;
+    if(b >= 0x61 && b <= 0x7A)
+      b -= 0x20;
+    return a < b;
+  }
+};
+std::ostream & operator<<(std::ostream &os, const DNSLabel& d);
+
+
+//! A DNS Name with helpful methods. Inherits case insensitivity from DNSLabel
 struct DNSName
 {
   DNSName() {}
@@ -94,17 +102,23 @@ struct DNSName
   std::deque<DNSLabel> d_name;
 };
 
+// printing, concatenation
 std::ostream & operator<<(std::ostream &os, const DNSName& d);
 DNSName operator+(const DNSName& a, const DNSName& b);
 
 class DNSMessageWriter;
+
+/* this is the how all resource records are stored, as generators
+   that can convert their content to a human readable string or to a DNSMessage
+*/
 struct RRGen
 {
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
-  virtual std::string toString() const { return "?"; } 
+  virtual std::string toString() const = 0;
   virtual DNSType getType() const = 0;
 };
 
+/* Resource records are treated as a set and have one TTL for the whole set */
 struct RRSet
 {
   std::vector<std::unique_ptr<RRGen>> contents;
@@ -115,13 +129,17 @@ struct RRSet
   uint32_t ttl{3600};
 };
 
+/* A node in the DNS tree */
 struct DNSNode
 {
   ~DNSNode();
+  //! This is the key function that finds names, returns where it found them and if any zonecuts were passsed
   const DNSNode* find(DNSName& name, DNSName& last, bool wildcards=false, const DNSNode** passedZonecut=0, DNSName* zonecutname=0) const;
+
+  //! This is an idempotent way to add a node to a DNS tree
   DNSNode* add(DNSName name);
-  std::map<DNSLabel, DNSNode> children;
   
+  // add one or more generators to this node  
   void addRRs(std::unique_ptr<RRGen>&&a);
   template<typename... Types>
   void addRRs(std::unique_ptr<RRGen>&&a, Types&&... args)
@@ -132,9 +150,14 @@ struct DNSNode
   
   void visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const;
 
+  // children, found by DNSLabel
+  std::map<DNSLabel, DNSNode> children;
+
+  // the RRSets, grouped by type
   std::map<DNSType, RRSet > rrsets;
   std::unique_ptr<DNSNode> zone; // if this is set, this node is a zone
-  uint16_t namepos{0};
+  uint16_t namepos{0}; //!< for label compression, we also use DNSNodes
 };
 
+//! Called by main() to load zone information
 void loadZones(DNSNode& zones);

@@ -6,30 +6,29 @@
 
 class DNSMessageReader;
 
-struct UnknownGen : RRGen
-{
-  UnknownGen(DNSType type, const std::string& rr) : d_type(type), d_rr(rr) {}
-  DNSType d_type;
-  std::string d_rr;
-  void toMessage(DNSMessageWriter& dpw) override;
-  std::string toString() const override;
-  DNSType getType() const override { return d_type; }
-};
+/* 
+   Generators know about a record type's contents. 
+   They also know how to inject themselves into a DNSMessageWriter, parse themselves from a DNSMessageReader 
+   and how to convert themselves into a master file representation.
+ */
 
 
+//! IP address, A record generator
 struct AGen : RRGen
 {
   AGen(uint32_t ip) : d_ip(ip) {}
   AGen(DNSMessageReader& dmr);
-  uint32_t d_ip;
+
   static std::unique_ptr<RRGen> make(const ComboAddress&);
   static std::unique_ptr<RRGen> make(const std::string& s)
   {
     return make(ComboAddress(s));
   }
-  void toMessage(DNSMessageWriter& dpw) override;
-  std::string toString() const override;
+  void toMessage(DNSMessageWriter& dpw) override; // to packet/message
+  std::string toString() const override; // master zone format
   DNSType getType() const override { return DNSType::A; }
+
+  uint32_t d_ip; // the actual IP
 };
 
 struct AAAAGen : RRGen
@@ -47,6 +46,7 @@ struct AAAAGen : RRGen
   void toMessage(DNSMessageWriter& dpw) override;
   std::string toString() const override;
   DNSType getType() const override { return DNSType::AAAA; }
+
   unsigned char d_ip[16];
 };
 
@@ -58,10 +58,9 @@ struct SOAGen : RRGen
 
   SOAGen(DNSMessageReader& dmr);
   
-  template<typename ... Targs>
-  static std::unique_ptr<RRGen> make(const DNSName& mname, const DNSName& rname, Targs&& ... fargs)
+  static std::unique_ptr<RRGen> make(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800)
   {
-    return std::make_unique<SOAGen>(mname, rname, std::forward<Targs>(fargs)...);
+    return std::make_unique<SOAGen>(mname, rname, serial, minimum, refresh, retry, expire);
   }
   
   void toMessage(DNSMessageWriter& dpw) override;
@@ -83,6 +82,7 @@ struct CNAMEGen : RRGen
   void toMessage(DNSMessageWriter& dpw) override;
   std::string toString() const override;
   DNSType getType() const override { return DNSType::CNAME; }
+  
   DNSName d_name;
 };
 
@@ -144,6 +144,17 @@ struct TXTGen : RRGen
   std::string d_txt;
 };
 
+/* This implements 'unknown record types' */
+struct UnknownGen : RRGen
+{
+  UnknownGen(DNSType type, const std::string& rr) : d_type(type), d_rr(rr) {}
+  DNSType d_type;
+  std::string d_rr;
+  void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
+  DNSType getType() const override { return d_type; }
+};
+
 struct ClockTXTGen : RRGen
 {
   ClockTXTGen(const std::string& format) : d_format(format) {}
@@ -152,7 +163,7 @@ struct ClockTXTGen : RRGen
     return std::make_unique<ClockTXTGen>(format);
   }
   void toMessage(DNSMessageWriter& dpw) override;
-
+  std::string toString() const { return d_format; }
   DNSType getType() const override { return DNSType::TXT; }
   std::string d_format;
 };

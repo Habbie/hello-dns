@@ -5,16 +5,19 @@
 #include <arpa/inet.h>
 #include <vector>
 
+//! A class that parses a DNS Message 
 class DNSMessageReader
 {
 public:
   DNSMessageReader(const char* input, uint16_t length);
   DNSMessageReader(const std::string& str) : DNSMessageReader(str.c_str(), str.size()) {}
-  struct dnsheader dh=dnsheader{};
-  std::vector<uint8_t> payload;
-  uint16_t payloadpos{0};
+  struct dnsheader dh=dnsheader{}; //!< the DNS header
+  std::vector<uint8_t> payload;    //!< The payload
+  uint16_t payloadpos{0};          //!< Current position of processing
   
+  //! Copies the qname and type to you
   void getQuestion(DNSName& name, DNSType& type) const;
+  //! Returns true if there was an EDNS record, plus copies details
   bool getEDNS(uint16_t* newsize, bool* doBit) const;
 
   bool getRR(DNSSection& section, DNSName& name, DNSType& type, uint32_t& ttl, std::unique_ptr<RRGen>& content);
@@ -74,6 +77,7 @@ public:
   bool d_haveEDNS{false};
 }; 
 
+//! A DNS Message writer
 class DNSMessageWriter
 {
 public:
