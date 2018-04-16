@@ -1,8 +1,45 @@
 #include "record-types.hh"
+#include <iomanip>
+
+struct StringBuilder
+{
+  explicit StringBuilder(std::string& str) : d_string(str) {}
+  void xfrName(const DNSName& name)
+  {
+    if(!d_string.empty()) d_string.append(1, ' ');
+    d_string += name.toString();
+  }
+  void xfrUInt16(uint16_t v)
+  {
+    if(!d_string.empty()) d_string.append(1, ' ');
+    d_string += std::to_string(v);
+  }
+  void xfrUInt32(uint32_t v)
+  {
+    if(!d_string.empty()) d_string.append(1, ' ');
+    d_string += std::to_string(v);
+  }
+  std::string& d_string;
+};
 
 void UnknownGen::toMessage(DNSMessageWriter& dmw)
 {
   dmw.xfrBlob(d_rr);
+}
+
+std::string UnknownGen::toString() const
+{
+  std::ostringstream ret;
+  ret<< "\\# " + std::to_string(d_rr.size());
+  if(!d_rr.empty()) {
+    ret<<" ";
+    ret<< std::setw(2) << std::setbase(16) << std::setfill('0');
+    
+    for(const auto& c : d_rr) {
+      ret<<(unsigned int)(unsigned char)c;
+    }
+  }
+  return ret.str();
 }
 
 std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
@@ -10,9 +47,21 @@ std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
   return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
 }
 
+AGen::AGen(DNSMessageReader& x)
+{
+  x.xfrUInt32(d_ip);
+}
+
 void AGen::toMessage(DNSMessageWriter& dmw)
 {
   dmw.xfrUInt32(d_ip);
+}
+std::string AGen::toString() const
+{
+  ComboAddress ca;
+  ca.sin4.sin_family = AF_INET;
+  ca.sin4.sin_addr.s_addr = ntohl(d_ip);
+  return ca.toString();
 }
 
 std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
@@ -26,25 +75,50 @@ std::unique_ptr<RRGen> AAAAGen::make(const ComboAddress& ca)
   return std::make_unique<AAAAGen>(ip);
 }
 
-void AAAAGen::toMessage(DNSMessageWriter& dmw)
+AAAAGen::AAAAGen(DNSMessageReader& x)
 {
-  dmw.xfrBlob(d_ip, 16);
+  std::string tmp;
+  x.xfrBlob(tmp, 16);
+  memcpy(&d_ip, tmp.c_str(), tmp.size());
+}
+
+void AAAAGen::toMessage(DNSMessageWriter& x)
+{
+  x.xfrBlob(d_ip, 16);
+}
+std::string AAAAGen::toString() const
+{
+  ComboAddress ca;
+  memset(&ca, 0, sizeof(ca));
+  ca.sin4.sin_family = AF_INET6;
+  memcpy(&ca.sin6.sin6_addr.s6_addr, d_ip, 16);
+  return ca.toString();
+}
+
+void SOAGen::doConv(auto& x) 
+{
+  x.xfrName(d_mname);    x.xfrName(d_rname);
+  x.xfrUInt32(d_serial);  x.xfrUInt32(d_refresh);
+  x.xfrUInt32(d_retry);   x.xfrUInt32(d_expire);
+  x.xfrUInt32(d_minimum);
 }
 
 SOAGen::SOAGen(DNSMessageReader& dmr)
 {
-  dmr.xfrName(d_mname);    dmr.xfrName(d_rname);
-  dmr.xfrUInt32(d_serial);  dmr.xfrUInt32(d_refresh);
-  dmr.xfrUInt32(d_retry);   dmr.xfrUInt32(d_expire);
-  dmr.xfrUInt32(d_minimum);
+  doConv(dmr);
 }
 
 void SOAGen::toMessage(DNSMessageWriter& dmw)
 {
-  dmw.xfrName(d_mname);    dmw.xfrName(d_rname);
-  dmw.xfrUInt32(d_serial);  dmw.xfrUInt32(d_refresh);
-  dmw.xfrUInt32(d_retry);   dmw.xfrUInt32(d_expire);
-  dmw.xfrUInt32(d_minimum);
+  doConv(dmw);
+}
+
+std::string SOAGen::toString() const
+{
+  std::string ret;
+  StringBuilder sb(ret);
+  const_cast<SOAGen*>(this)->doConv(sb);
+  return ret;
 }
 
 CNAMEGen::CNAMEGen(DNSMessageReader& x)
@@ -55,6 +129,10 @@ void CNAMEGen::toMessage(DNSMessageWriter& x)
 {
   x.xfrName(d_name);
 }
+std::string CNAMEGen::toString() const
+{
+  return d_name.toString();
+}
 
 PTRGen::PTRGen(DNSMessageReader& x)
 {
@@ -64,34 +142,51 @@ void PTRGen::toMessage(DNSMessageWriter& x)
 {
   x.xfrName(d_name);
 }
+std::string PTRGen::toString() const
+{
+  return d_name.toString();
+}
+
 
 NSGen::NSGen(DNSMessageReader& x)
 {
   x.xfrName(d_name);
 }
-
 void NSGen::toMessage(DNSMessageWriter& x)
 {
   x.xfrName(d_name);
 }
+std::string NSGen::toString() const
+{
+  return d_name.toString();
+}
 
 MXGen::MXGen(DNSMessageReader& x)
 {
-  x.xfrUInt16(d_prio);
-  x.xfrName(d_name);
+  x.xfrUInt16(d_prio);  x.xfrName(d_name);
 }
 
 void MXGen::toMessage(DNSMessageWriter& x) 
 {
-  x.xfrUInt16(d_prio);
-  x.xfrName(d_name);
+  x.xfrUInt16(d_prio);  x.xfrName(d_name);
 }
+
+std::string MXGen::toString() const
+{
+  return std::to_string(d_prio)+" "+d_name.toString();
+}
+
 
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
   // XXX should autosplit or throw
   dmw.xfrUInt8(d_txt.length());
   dmw.xfrBlob(d_txt);
+}
+
+std::string TXTGen::toString() const
+{
+  return "\""+ d_txt + "\""; // XXX should escape
 }
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 

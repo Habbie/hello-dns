@@ -86,6 +86,7 @@ struct DNSName
   auto size() { return d_name.size(); }
   void clear() { d_name.clear(); }
   bool makeRelative(const DNSName& root);
+  std::string toString() const;
   bool operator==(const DNSName& rhs) const
   {
     return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end())==0;
@@ -100,6 +101,7 @@ class DNSMessageWriter;
 struct RRGen
 {
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
+  virtual std::string toString() const { return "?"; } 
   virtual DNSType getType() const = 0;
 };
 

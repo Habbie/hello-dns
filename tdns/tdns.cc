@@ -359,6 +359,7 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
         continue;
       if(rrtype == DNSType::SOA && ++soaCount==2)
         goto done;
+      cout << rrname<< " IN " << rrtype << " " << ttl << " " <<rr->toString()<<endl;
       ret->add(rrname)->addRRs(std::move(rr));
       ret->add(rrname)->rrsets[rrtype].ttl = ttl;
     }
@@ -395,7 +396,6 @@ try
   zones.add({"hubertnet", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"hubertnet", "nl"});
   zones.add({"ds9a", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"ds9a", "nl"});
   */
-  
   thread udpServer(udpThread, local, &udplistener, &zones);
 
   for(;;) {

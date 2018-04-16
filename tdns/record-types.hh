@@ -4,16 +4,15 @@
 #include "dnsmessages.hh"
 #include "comboaddress.hh"
 
+class DNSMessageReader;
+
 struct UnknownGen : RRGen
 {
   UnknownGen(DNSType type, const std::string& rr) : d_type(type), d_rr(rr) {}
   DNSType d_type;
   std::string d_rr;
-  static std::unique_ptr<RRGen> make(DNSType type, const std::string& rr)
-  {
-    return std::make_unique<UnknownGen>(type, rr);
-  }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return d_type; }
 };
 
@@ -21,6 +20,7 @@ struct UnknownGen : RRGen
 struct AGen : RRGen
 {
   AGen(uint32_t ip) : d_ip(ip) {}
+  AGen(DNSMessageReader& dmr);
   uint32_t d_ip;
   static std::unique_ptr<RRGen> make(const ComboAddress&);
   static std::unique_ptr<RRGen> make(const std::string& s)
@@ -28,11 +28,13 @@ struct AGen : RRGen
     return make(ComboAddress(s));
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::A; }
 };
 
 struct AAAAGen : RRGen
 {
+  AAAAGen(DNSMessageReader& dmr);
   AAAAGen(unsigned char ip[16])
   {
     memcpy(d_ip, ip, 16);
@@ -43,11 +45,10 @@ struct AAAAGen : RRGen
     return make(ComboAddress(s));
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::AAAA; }
   unsigned char d_ip[16];
 };
-
-class DNSMessageReader;
 
 struct SOAGen : RRGen
 {
@@ -65,6 +66,8 @@ struct SOAGen : RRGen
   
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::SOA; }
+  std::string toString() const override;
+  void doConv(auto& x);
   DNSName d_mname, d_rname;
   uint32_t d_serial, d_minimum, d_refresh, d_retry, d_expire;
 };
@@ -78,6 +81,7 @@ struct CNAMEGen : RRGen
     return std::make_unique<CNAMEGen>(mname);
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::CNAME; }
   DNSName d_name;
 };
@@ -91,6 +95,7 @@ struct PTRGen : RRGen
     return std::make_unique<PTRGen>(mname);
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::PTR; }
   DNSName d_name;
 };
@@ -104,6 +109,7 @@ struct NSGen : RRGen
     return std::make_unique<NSGen>(mname);
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::NS; }
   DNSName d_name;
 };
@@ -119,6 +125,7 @@ struct MXGen : RRGen
     return std::make_unique<MXGen>(prio, name);
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::MX; }
   uint16_t d_prio;
   DNSName d_name;
@@ -132,6 +139,7 @@ struct TXTGen : RRGen
     return std::make_unique<TXTGen>(txt);
   }
   void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
   DNSType getType() const override { return DNSType::TXT; }
   std::string d_txt;
 };
@@ -144,6 +152,7 @@ struct ClockTXTGen : RRGen
     return std::make_unique<ClockTXTGen>(format);
   }
   void toMessage(DNSMessageWriter& dpw) override;
+
   DNSType getType() const override { return DNSType::TXT; }
   std::string d_format;
 };

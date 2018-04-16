@@ -114,8 +114,15 @@ std::ostream & operator<<(std::ostream &os, const DNSLabel& d)
 
 std::ostream & operator<<(std::ostream &os, const DNSName& d)
 {
-  for(const auto& l : d.d_name) 
+  if(d.empty()) os<<'.';
+  else for(const auto& l : d.d_name) 
     os<<l<<".";
   return os;
 }
 
+std::string DNSName::toString() const
+{
+  ostringstream str;
+  str << *this;
+  return str.str();
+}
