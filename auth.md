@@ -137,10 +137,11 @@ in exhaustive detail.
 name, but that it will only match itself, and not `one.two.three.ietf.org`.
 
 4592 attempts to clarify every possible misunderstanding relating to
-wildcards (including interactions with DNSSEC), but is itself a confusing
-document to read.  It is recommended to refer to 4592 to resolve difficult
-wildcard questions, but if possible to stay well clear of difficult wildcard
-situations in the first place.
+wildcards (including interactions with DNSSEC), but because of its
+overwhelming detail may itself be a confusing document to read.  It is
+recommended to refer to 4592 to resolve difficult wildcard questions, but if
+possible to stay well clear of difficult wildcard situations in the first
+place.
 
 Specifically, this means not using wildcards for NS records or in other
 exciting places.
