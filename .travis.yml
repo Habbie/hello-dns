@@ -8,7 +8,22 @@ before_script:
  - sudo apt-get install -yq --no-install-suggests gcc-5 g++-5 libboost-dev
  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5
  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install make 
+ - pushd /tmp
+ - git clone https://gitlab.isc.org/isc-projects/DNS-Compliance-Testing.git
+ - cd DNS-Compliance-Testing
+ - git checkout 5c207eef7f7f655fbf91f43b44fd285511d253c9
+ - autoreconf -vfi
+ - ./configure
+ - sudo make install
+ - popd
 script:
  - cd tdns
  - make
  - make check
+ - sudo ./tdns 127.0.0.1 > tdns.log &
+ - sleep 5
+ - echo 'tdns.powerdns.org localhost 127.0.0.1' | genreport -4 -f -I opcode -I opcodeflg -d > genreport.out
+ - FAILCOUNT=$(tail -n 1 genreport.out | cut -f2 '-d:' | xargs -n1 echo | grep -v =ok | wc -l)
+ - sudo killall tdns
+ - sleep 5
+ - if [ $FAILCOUNT != 0 ] ; then cat genreport.out ; cat tdns.log ; false ; fi
