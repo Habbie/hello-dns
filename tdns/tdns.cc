@@ -168,7 +168,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       else {
         cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
         const auto& rrset = bestzone->rrsets[DNSType::SOA];
-        response.putRR(DNSSection::Answer, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+        response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
       }
       addAdditional(bestzone, zonename, additional, response);      
     }
