@@ -10,7 +10,6 @@
    and outputting master file format text */
 struct StringBuilder
 {
-  explicit StringBuilder(std::string& str) : d_string(str) {}
   void xfrName(const DNSName& name)
   {
     if(!d_string.empty()) d_string.append(1, ' ');
@@ -26,7 +25,8 @@ struct StringBuilder
     if(!d_string.empty()) d_string.append(1, ' ');
     d_string += std::to_string(v);
   }
-  std::string& d_string;
+  
+  std::string d_string;
 };
 
 AGen::AGen(DNSMessageReader& x)
@@ -101,10 +101,9 @@ void SOAGen::toMessage(DNSMessageWriter& dmw)
 
 std::string SOAGen::toString() const
 {
-  std::string ret;
-  StringBuilder sb(ret);
+  StringBuilder sb;
   const_cast<SOAGen*>(this)->doConv(sb);
-  return ret;
+  return sb.d_string;
 }
 ///////////////////////////////
 

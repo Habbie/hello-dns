@@ -5,6 +5,7 @@
 #include "sclasses.hh"
 #include <thread>
 #include <signal.h>
+#include <sys/random.h>
 #include "record-types.hh"
 
 /*! 
@@ -15,7 +16,8 @@
 
 using namespace std;
 
-DNSName fromString(const std::string& str)
+//! This function is plain wrong and does unescape its input
+DNSName makeDNSName(const std::string& str)
 {
   DNSName ret;
   string part;
@@ -39,13 +41,15 @@ try
     return(EXIT_FAILURE);
   }
   signal(SIGPIPE, SIG_IGN);
-
-  DNSName dn = fromString(argv[1]);
+  
+  DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
   ComboAddress server(argv[3]);
 
   DNSMessageWriter dmw(dn, dt);
+          
   dmw.dh.rd = true;
+  dmw.randomizeID();
   dmw.setEDNS(4000, false);
   
   Socket sock(server.sin4.sin_family, SOCK_DGRAM);
@@ -54,15 +58,17 @@ try
   string resp =SRecvfrom(sock, 65535, server);
 
   DNSMessageReader dmr(resp);
-  DNSName rrname;
-  DNSType rrtype;
+
   DNSSection rrsection;
   uint32_t ttl;
+
+  dmr.getQuestion(dn, dt);
+  
+  cout<<"Received "<<resp.size()<<" byte response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<endl;
+
   std::unique_ptr<RRGen> rr;
-  dmr.getQuestion(rrname, rrtype);
-  cout<<"Received "<<resp.size()<<" byte response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<rrname<<", qtype "<<rrtype<<endl;
-  while(dmr.getRR(rrsection, rrname, rrtype, ttl, rr)) {
-    cout << rrname<< " IN " << rrtype << " " << ttl << " " <<rr->toString()<<endl;
+  while(dmr.getRR(rrsection, dn, dt, ttl, rr)) {
+    cout << dn<< " IN " << dt << " " << ttl << " " <<rr->toString()<<endl;
   }
 
 }

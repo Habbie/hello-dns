@@ -110,6 +110,7 @@ public:
   ~DNSMessageWriter();
   DNSMessageWriter(const DNSMessageWriter&) = delete;
   DNSMessageWriter& operator=(const DNSMessageWriter&) = delete;
+  void randomizeID(); //!< Randomize the id field of our dnsheader
   void clearRRs();
   void putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
   void setEDNS(uint16_t bufsize, bool doBit, RCode ercode = (RCode)0);

@@ -159,6 +159,81 @@ Similar enums are defined for RCodes (response codes, RCode::Nxdomain for
 example) and DNS Sections (Question, Answer, Nameserver/Authority,
 Additional). These too can be printed.
 
+
+## `tdig`
+To discover how `tdns` works, let's start with the basics: sending DNS
+queries and parsing responses. For this purpose, the `tdig` tool is
+provided, somewhat modelled after the famous `dig` program created by ISC.
+
+The code:
+```
+1	int main(int argc, char** argv)
+2	{
+3		/* ... */
+4		DNSName dn = DNSNameFromString(argv[1]);
+5		DNSType dt = makeDNSType(argv[2]);
+6		ComboAddress server(argv[3]);
+7
+8		DNSMessageWriter dmw(dn, dt);
+9		dmw.dh.rd = true;
+10		dmw.setEDNS(4000, false);
+```
+
+This starts out with the basics: it reads a `DNSName` from the first
+argument to `tdns`, a `DNSType` from the second and finally a server IP
+address from the third argument.
+
+With this knowledge, in line 8 we create a `DNSMessageWriter` to make a
+question for query name `dn` and query type `dt`. In addition, we set the
+'recursion desired' flag. 
+
+Finally on line 10, we indicate our support for up to 4000 byte responses,
+but we set the 'DNSSEC Ok' flag to false.
+
+Next, mechanics:
+
+``` 
+1	Socket sock(server.sin4.sin_family, SOCK_DGRAM);
+2	SConnect(sock, server);
+3	SWrite(sock, dmw.serialize());
+4	string resp =SRecvfrom(sock, 65535, server);
+5
+6	DNSMessageReader dmr(resp);
+```
+
+In line 1 we create a datagram socket appropriate for the protocol of
+`server`. This is based on a small set of socket wrappers called
+[simplesockets](https://github.com/ahuPowerDNS/simplesocket). On line 2 we
+connect and on line 3 we serialize our DNSMessageWriter and send the
+resulting packet. On line 4 we receive a response.
+
+Finally on line 6 we parse that response into a `DNSMessageReader`.
+
+```
+1	DNSSection rrsection;
+2	uint32_t ttl;
+3 
+4	dmr.getQuestion(dn, dt);
+5	
+6	cout<<"Received " << resp.size() << " byte response with RCode ";
+7	cout << (RCode)dmr.dh.rcode << ", qname " << dn << ", qtype " << dt << endl;
+8	std::unique_ptr< RRGen > rr;
+9	while(dmr.getRR(rrsection, dn, dt, ttl, rr)) {
+10	  cout << dn<< " IN " << dt << " " << ttl << " " << rr->toString() << endl;
+11	}
+```
+
+On lines 1 and 2 we declare some variable we'll need later to actually
+retrieve the resource records. On line 4 we retrieved the name and type we
+received an answer for, and on line 6 this all is displayed.
+
+Line 8 declares 'rr' ready to receive our Resource Records, which are then
+retrieved using the `getRR` method from the `DNSMessageReader` on line 9.
+
+On line 10 we print what we found. Note that the `RRGen` object helpfully
+has a `toString()` method for human friendly output.
+
+
 # The DNS Tree
 The DNS Tree is of fundamental importance, and is used a number of times
 within `tdns`.
@@ -552,7 +627,7 @@ design with nodes, our code is trivial:
 ```
 1	else {
 2		const auto& rrset = bestzone->rrsets[DNSType::SOA];
-3		response.putRR(DNSSection::Answer, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+3		response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
 4	}
 ```
 

@@ -20,7 +20,7 @@
 
 //! DNS header struct
 struct dnsheader {
-        unsigned        id :16;         /* query identification number */
+        uint16_t        id;         /* query identification number */
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
                         /* fields in third byte */
         unsigned        qr: 1;          /* response flag */

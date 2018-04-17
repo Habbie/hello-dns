@@ -1,6 +1,6 @@
 #include "dnsmessages.hh"
 #include "record-types.hh"
-
+#include <sys/random.h>
 using namespace std;
 
 DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
@@ -108,6 +108,12 @@ bool DNSMessageReader::getRR(DNSSection& section, DNSName& name, DNSType& type, 
 
 // this is required to make the std::unique_ptr to DNSZone work. Long story.
 DNSMessageWriter::~DNSMessageWriter() = default;
+
+void DNSMessageWriter::randomizeID()
+{
+  if(getrandom(&dh.id, 2, 0) != 2)
+    throw std::runtime_error("No entropy");
+}
 
 void DNSMessageWriter::xfrName(const DNSName& name, bool compress)
 {
