@@ -4,6 +4,7 @@
 Note: this page is part of the
 '[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
+
 # teaching DNS
 Welcome to tdns, a 'from scratch' teaching authoritative server,
 implementing all of [basic DNS](../basic.md.html) in ~~1000~~ ~~1100~~ 1200
@@ -31,7 +32,7 @@ The goals of tdns are:
  * Protocol correctness, except where the protocol needs updating
  * Suitable for educational purposes
  * Display best practices, both in DNS and security
- * Be a living warning for how hard it is to write nameserver correctly
+ * **Be a living warning for how hard it is to write a nameserver correctly**
 
 Non-goals are:
 
@@ -78,9 +79,9 @@ In addition, with the advent of RFCs like
 [8020](https://tools.ietf.org/html/rfc8020) sending incorrect answers will
 start wiping out your domain name.
 
-However, we can't put the all of the blame for disappointing quality on the
-embedded and closed source implementation community.  It was indeed
-frighteningly hard to out find how to write a correct authoritative
+However, we can't put the all (or even most) of the blame for disappointing
+quality on the embedded and closed source implementation community.  It was
+indeed frighteningly hard to out find how to write a correct authoritative
 nameserver.
 
 Existing open source nameservers are all highly optimized and/or have
@@ -91,7 +92,7 @@ straightforward as possible!
 
 `tdns` addresses this gap by being a 1500 line long server that is well
 documented and described. Any competent programmer can read the entire
-source code a few hours and observe how things should be done.
+source code a few hours and observe how things really should be done.
 
 ## That sounds like hubris
 In a sense, this is by design. `tdns` attempts to do everything not only
@@ -102,10 +103,10 @@ It is hoped that the DNS community will rally to this cause and pour over
 the `tdns` source code to spot everything that could potentially be wrong or
 could be done better. 
 
-In other words, were `tdns` is currently not right, we hope that with
-sufficient attention it soon will be.
+In other words, where `tdns` is currently not right, we hope that with
+sufficient attention it soon will be. Bikeshed away!
 
-# How did all those features fit in 1200 lines?
+# How did all those features fit in ~1200 lines?
 Key to a good DNS implementation is having a faithful DNS storage model,
 with the correct kind of objects in them.
 
@@ -130,8 +131,34 @@ Of specific note is the DNS Tree as described in RFC 1034. Because DNS is
 never shown to us as a tree, and in fact is presented as a flat 'zone file',
 it is easy to ignore the tree-like nature of DNS. 
 
-If this tree is embraced however, it turns out that a nameserver can use the
-very same DNS tree implementation three times:
+
+*************************************************************************************************
+*                                                                                               *
+*                                   .---.                                                       *
+*   1                    +---------+     +--------+                                             *
+*                       /           '-+-'          \                                            *
+*                      /              |             \                                           *
+*                   .-+-.           .-+-.          .-+-.                                        *
+*   2              + ietf+         | ietg+        | ... +                                       *
+*                   '-+-'           '-+-'          '---'                                        *
+*                    / \              |                                                         *
+*                   /   \             |                                                         *
+*               .--+.    +---.      .-+-.                                                       *
+*   3          + ord |  | fra +    | ... +                                                      *  
+*               '-+-'    '-+-'      '---'                                                       *
+*                 |        |                                                                    *
+*               .-+-.    .-+-.                                                                  *                   
+*   4          + ns1 |  | ns2 +                                                                 *                   
+*               '-+-'    '---'                                                                  *                   
+*                                                                                               *
+*************************************************************************************************
+[Figure [diagram]: DNS Tree containing data nodes `ns1.ord.ietf.org`, `ns2.fra.ietf.org`, `ietf.org` and `org` ] 
+
+To find nodes within the DNS tree, start matching from the top. This zone is
+called `org`, so at depth 4 we can find `ns1.ord.ietf.org`.
+
+If this tree is embraced, it turns out that a nameserver can use the very
+same tree implementation three times:
 
 1. To find the most specific zone to be serving answers from
 2. To traverse that zone to find the correct answers or delegation
@@ -144,6 +171,24 @@ Interestingly, when asked (via Paul Vixie), Paul Mockapetris indicated he
 was surprised that the DNS Tree could in fact be reused for DNS name
 compression. This 2018 discovery in a 1985 protocol turns out to work
 surprisingly well!
+
+## Putting the tricky bits at a fundamental level
+DNS names look surprisingly like strings, but they very much are not. For
+starters, DNS is case insensitive in its own special way, and such rules
+must be obeyed for DNSSEC to ever work.
+
+Furthermore, despite appearances, DNS is 8-bit safe. This means that
+individual DNS labels (usually separated by dots) can contain embedded 0
+characters, but also actual dots themselves.
+
+A lot of code 'up the stack' can be simplified by having basic types that
+are fully DNS native, like DNS Labels which are case insensitive, stored in
+binary and length limited by themselves.
+
+Code that uses "strings" for DNS may struggle to recognize (in all places!)
+that `www.PowerDNS.COM`, `www.powerdns.com`, `www.p\079werdns.com.` and
+`www.p\111werdns.com` are all equivalent, but that `www\046powercns.com` is
+not.
 
 ## The fundamental symmetry of DNS
 In what is likely not an accident, all known DNS record types are laid out
@@ -209,6 +254,8 @@ std::string SOAGen::toString()
 
 ```
 
+Exploiting this symmetry does not only save code, it also saves us from
+potential inconsistencies as well.
 
 
 <script>
