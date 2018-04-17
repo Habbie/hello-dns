@@ -99,7 +99,7 @@ In a sense, this is by design. `tdns` attempts to do everything not only
 correctly but also in a best practice fashion. It wants to be an excellent
 nameserver that is fully compliant to all relevant standards and lore.
 
-It is hoped that the DNS community will rally to this cause and pour over
+It is hoped that the DNS community will rally to this cause and pore over
 the `tdns` source code to spot everything that could potentially be wrong or
 could be done better. 
 
