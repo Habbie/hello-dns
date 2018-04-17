@@ -39,4 +39,4 @@ l.gtld-servers.net. IN A 172800 192.41.162.30
 l.gtld-servers.net. IN AAAA 172800 2001:500:d937::30
 m.gtld-servers.net. IN A 172800 192.55.83.30
 m.gtld-servers.net. IN AAAA 172800 2001:501:b1f9::30
-. IN OPT 32768 \# 0
+. IN OPT 0 \# 0

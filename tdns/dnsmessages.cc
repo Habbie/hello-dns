@@ -69,7 +69,7 @@ bool DNSMessageReader::getEDNS(uint16_t* bufsize, bool* doBit) const
   if(!d_haveEDNS)
     return false;
   *bufsize = d_bufsize;
-  *doBit = doBit;
+  *doBit = d_doBit;
   return true;
 }
 

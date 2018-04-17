@@ -7,7 +7,7 @@ all: $(PROGRAMS)
 clean:
 	rm -f *~ *.o *.d test $(PROGRAMS)
 
-check: testrunner
+check: testrunner tdns tdig
 	./testrunner
 	cd tests ; ./basic
 
