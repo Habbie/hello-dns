@@ -143,7 +143,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       vector<DNSName> additional;
       // first we always check for a CNAME, which should be the only RRType at a node if present
       if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
-
+        cout<<"\tNo CNAME"<<endl;
         const auto& rrset = iter->second;
         response.putRR(DNSSection::Answer, lastnode+zonename, DNSType::CNAME, rrset.ttl, rrset.contents[0]);
         DNSName target=dynamic_cast<CNAMEGen*>(rrset.contents[0].get())->d_name;
@@ -169,6 +169,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         for(auto i2 = range.first; i2 != range.second; ++i2) {
           const auto& rrset = i2->second;
           for(const auto& rr : rrset.contents) {
+            cout<<"\tAdding a " << i2->first <<" RR\n";
             response.putRR(DNSSection::Answer, lastnode+zonename, i2->first, rrset.ttl, rr);
             if(i2->first == DNSType::MX)
               additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
