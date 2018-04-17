@@ -42,7 +42,7 @@ achieve can be found [here](intro.md.html).
 # Current status
 All 'basic DNS' items are implemented:
 
- * A, AAAA, CNAME, MX, NS, PTR, SOA, TXT, "Unknown"
+ * A, AAAA, CNAME, MX, NS, PTR, SOA, NAPTR, SRV, TXT, "Unknown"
  * UDP & TCP
  * AXFR (incoming and outgoing)
  * Wildcards

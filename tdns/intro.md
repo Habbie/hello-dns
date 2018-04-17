@@ -47,7 +47,7 @@ Besides being 'teachable', `tdns` could actually be useful if you need a
 Despite being very small, `tdns` covers a lot of ground, with all 'basic
 DNS' items are implemented:
 
- * A, AAAA, CNAME, MX, NS, PTR, SOA, TXT, "Unknown"
+ * A, AAAA, CNAME, MX, NS, PTR, SOA, NAPTR, SRV, TXT, "Unknown"
  * UDP & TCP
  * AXFR (incoming and outgoing)
  * Wildcards
