@@ -7,16 +7,17 @@ Note: this page is part of the
 
 # teaching DNS
 Welcome to tdns, a 'from scratch' teaching authoritative server,
-implementing all of [basic DNS](../basic.md.html) in ~~1000~~ ~~1100~~ 1200
-lines of code.  Code is
+implementing all of [basic DNS](https://powerdns.org/hello-dns/basic.md.html) in
+~~1200~~ ~~1300~~ 1400 lines of code.  Code is
 [here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).  To
 compile, see [here](https://powerdns.org/hello-dns/tdns/README.md.html).
 
-`tdns` is part of the 'hello-dns' effort to provide a good entrypoint into
-DNS. This project was started after an IETF presentation in which it was
-discovered the DNS standards have now grown to 2500 pages, and we can no
-longer expect new entrants to the field to read all that. After 30 years,
-DNS deserves a fresh explanation and
+`tdns` is part of the '[hello-dns](https://powerdns.org/hello-dns)' effort
+to provide a good entry point into DNS.  This project was started after an
+[IETF presentation](https://blog.powerdns.com/2018/03/22/the-dns-camel-or-the-rise-in-dns-complexit/)
+ in which it was discovered the DNS standards have now grown to 2500 pages,
+and we can no longer expect new entrants to the field to read all that. 
+After 30 years, DNS deserves a fresh explanation and
 [hello-dns](https://powerdns.org/hello-dns) is it.
 
 Even though the 'hello-dns' documents describe how basic DNS works, and how
@@ -24,7 +25,8 @@ an authoritative server should function, nothing quite says how to do things
 like actual running code.  `tdns` is small enough to read in one sitting and
 shows how DNS packets are parsed and generated.  `tdns` is currently written
 in C++ 2014, and is MIT licensed.  Reimplementations in other languages are
-highly welcome, as these may be more accessible to other programmers. 
+highly welcome, as these may be more accessible to programmers not fluent in
+C++.
 
 The goals of tdns are:
 
@@ -33,6 +35,9 @@ The goals of tdns are:
  * Suitable for educational purposes
  * Display best practices, both in DNS and security
  * **Be a living warning for how hard it is to write a nameserver correctly**
+
+The target audience of `tdns` is anyone pondering or actually implementing
+an authoritative nameserver or a stub resolver. 
 
 Non-goals are:
 
@@ -44,11 +49,12 @@ Besides being 'teachable', `tdns` could actually be useful if you need a
 4-file dependency-light library that can look up DNS things for you.
 
 ## Features
-Despite being very small, `tdns` covers a lot of ground, with all 'basic
-DNS' items are implemented:
+Despite being very small, `tdns` covers a lot of ground, implementing all
+parts of 'basic DNS' (as defined by the 'hello-dns' pages):
 
  * A, AAAA, CNAME, MX, NS, PTR, SOA, NAPTR, SRV, TXT, "Unknown"
  * UDP & TCP
+ * Empty non-terminals
  * AXFR (incoming and outgoing)
  * Wildcards
  * Delegations
@@ -57,7 +63,7 @@ DNS' items are implemented:
  * Compression / Decompression
 
 As a bonus:
- * EDNS (buffer size, no options)
+ * EDNS (buffer size, flags, extended RCode, no options)
 
 What this means is that with `tdns`, you can actually host your domain name,
 or even slave it from another master server.
@@ -66,7 +72,7 @@ or even slave it from another master server.
 There is no shortage of nameservers.  In fact, there is an embarrassing
 richness of very good ones out there already.  So why bother?  The biggest
 problem with DNS today is not the great open source implementations.  It is
-the absolutely dreary stuff we find in appliances, modems, load balancers,
+the absolutely dreadful stuff we find in appliances, modems, load balancers,
 CDNs, CPEs and routers.
 
 The DNS community frequently laments how much work our resolvers have to do
@@ -75,8 +81,8 @@ that ISC, NLNetLabs, CZNIC and PowerDNS together have announced that
 starting 2019 [we will no longer work around certain classes of
 breakage](https://blog.powerdns.com/2018/03/22/removing-edns-workarounds/).
 
-In addition, with the advent of RFCs like
-[8020](https://tools.ietf.org/html/rfc8020) sending incorrect answers will
+In addition, with the advent of RFCs like [RFC
+8020](https://tools.ietf.org/html/rfc8020) sending incorrect answers will
 start wiping out your domain name.
 
 However, we can't put the all (or even most) of the blame for disappointing
@@ -85,10 +91,10 @@ indeed frighteningly hard to out find how to write a correct authoritative
 nameserver.
 
 Existing open source nameservers are all highly optimized and/or have
-decades of operational expertise worked into their code. What this means is
-that actually reading that code to learn about DNS is not easy. Achieving
-millions of queries per second does not leave the luxury of keeping code as
-straightforward as possible!
+decades of operational expertise (and trauma) worked into their code.  What
+this means is that actually reading that code to learn about DNS is not
+easy.  Achieving millions of queries per second does not leave the luxury of
+keeping code in an accessible or educational state.
 
 `tdns` addresses this gap by being a 1500 line long server that is well
 documented and described. Any competent programmer can read the entire
@@ -190,7 +196,7 @@ that `www.PowerDNS.COM`, `www.powerdns.com`, `www.p\079werdns.com.` and
 `www.p\111werdns.com` are all equivalent, but that `www\046powercns.com` is
 not.
 
-## The fundamental symmetry of DNS
+## The inner symmetry of DNS
 In what is likely not an accident, all known DNS record types are laid out
 exactly the same in the packet as in the zone file. So in other words the
 well known SOA record looks like this on our screen:
@@ -255,7 +261,7 @@ std::string SOAGen::toString()
 ```
 
 Exploiting this symmetry does not only save code, it also saves us from
-potential inconsistencies as well.
+potential inconsistencies.
 
 
 <script>
