@@ -219,7 +219,7 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
 
     if(processQuestion(*zones, dm, remote, response)) {
       if(response.dh.rcode)
-        cout<<"Sending response with rcode "<<(RCode)response.dh.rcode <<endl;
+        cout<<"\tSending response with rcode "<<(RCode)response.dh.rcode <<endl;
 
       SSendto(*sock, response.serialize(), remote);
     }
