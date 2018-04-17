@@ -5,7 +5,6 @@
 #include "sclasses.hh"
 #include <thread>
 #include <signal.h>
-#include <sys/random.h>
 #include "record-types.hh"
 
 /*! 

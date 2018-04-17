@@ -1,6 +1,5 @@
 #include "dnsmessages.hh"
 #include "record-types.hh"
-#include <sys/random.h>
 using namespace std;
 
 DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
@@ -111,8 +110,7 @@ DNSMessageWriter::~DNSMessageWriter() = default;
 
 void DNSMessageWriter::randomizeID()
 {
-  if(getrandom(&dh.id, 2, 0) != 2)
-    throw std::runtime_error("No entropy");
+  dh.id = random();
 }
 
 void DNSMessageWriter::xfrName(const DNSName& name, bool compress)
