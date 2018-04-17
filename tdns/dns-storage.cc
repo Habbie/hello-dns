@@ -87,6 +87,10 @@ void DNSNode::visit(std::function<void(const DNSName& name, const DNSNode*)> vis
 
 void DNSNode::addRRs(std::unique_ptr<RRGen>&&a)
 {
+  if(a->getType() == DNSType::CNAME && rrsets.size())
+    throw std::runtime_error("Can't add CNAME RR to a node that already has RRs present");
+  else if(rrsets.count(DNSType::CNAME))
+    throw std::runtime_error("Can't add an RR to a node that already has a CNAME");
   rrsets[a->getType()].add(std::move(a));
 }
 
