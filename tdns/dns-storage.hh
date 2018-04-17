@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include "nenum.hh"
+#include "comboaddress.hh"
 
 // enums
 enum class RCode 
@@ -161,3 +162,5 @@ struct DNSNode
 
 //! Called by main() to load zone information
 void loadZones(DNSNode& zones);
+
+std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName& zone); 

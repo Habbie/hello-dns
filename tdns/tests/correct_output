@@ -1,0 +1,42 @@
+	Adding EDNS to DNS Message
+Received 841 byte response with RCode Noerror, qname www.powerdns.com., qtype A
+com. IN NS 172800 a.gtld-servers.net.
+com. IN NS 172800 b.gtld-servers.net.
+com. IN NS 172800 c.gtld-servers.net.
+com. IN NS 172800 d.gtld-servers.net.
+com. IN NS 172800 e.gtld-servers.net.
+com. IN NS 172800 f.gtld-servers.net.
+com. IN NS 172800 g.gtld-servers.net.
+com. IN NS 172800 h.gtld-servers.net.
+com. IN NS 172800 i.gtld-servers.net.
+com. IN NS 172800 j.gtld-servers.net.
+com. IN NS 172800 k.gtld-servers.net.
+com. IN NS 172800 l.gtld-servers.net.
+com. IN NS 172800 m.gtld-servers.net.
+a.gtld-servers.net. IN A 172800 192.5.6.30
+a.gtld-servers.net. IN AAAA 172800 2001:503:a83e::2:30
+b.gtld-servers.net. IN A 172800 192.33.14.30
+b.gtld-servers.net. IN AAAA 172800 2001:503:231d::2:30
+c.gtld-servers.net. IN A 172800 192.26.92.30
+c.gtld-servers.net. IN AAAA 172800 2001:503:83eb::30
+d.gtld-servers.net. IN A 172800 192.31.80.30
+d.gtld-servers.net. IN AAAA 172800 2001:500:856e::30
+e.gtld-servers.net. IN A 172800 192.12.94.30
+e.gtld-servers.net. IN AAAA 172800 2001:502:1ca1::30
+f.gtld-servers.net. IN A 172800 192.35.51.30
+f.gtld-servers.net. IN AAAA 172800 2001:503:d414::30
+g.gtld-servers.net. IN A 172800 192.42.93.30
+g.gtld-servers.net. IN AAAA 172800 2001:503:eea3::30
+h.gtld-servers.net. IN A 172800 192.54.112.30
+h.gtld-servers.net. IN AAAA 172800 2001:502:8cc::30
+i.gtld-servers.net. IN A 172800 192.43.172.30
+i.gtld-servers.net. IN AAAA 172800 2001:503:39c1::30
+j.gtld-servers.net. IN A 172800 192.48.79.30
+j.gtld-servers.net. IN AAAA 172800 2001:502:7094::30
+k.gtld-servers.net. IN A 172800 192.52.178.30
+k.gtld-servers.net. IN AAAA 172800 2001:503:d2d::30
+l.gtld-servers.net. IN A 172800 192.41.162.30
+l.gtld-servers.net. IN AAAA 172800 2001:500:d937::30
+m.gtld-servers.net. IN A 172800 192.55.83.30
+m.gtld-servers.net. IN AAAA 172800 2001:501:b1f9::30
+. IN OPT 32768 \# 0

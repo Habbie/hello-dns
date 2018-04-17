@@ -9,13 +9,14 @@ clean:
 
 check: testrunner
 	./testrunner
+	cd tests ; ./basic
 
 -include *.d
 
 tdns: tdns.o record-types.o dns-storage.o dnsmessages.o contents.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
 	g++ -std=gnu++14 $^ -o $@ -pthread
 
-tdig: tdig.o record-types.o dns-storage.o dnsmessages.o contents.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
+tdig: tdig.o record-types.o dns-storage.o dnsmessages.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
 	g++ -std=gnu++14 $^ -o $@ -pthread
 
 

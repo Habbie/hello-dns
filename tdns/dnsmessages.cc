@@ -16,7 +16,10 @@ DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
     d_qtype = (DNSType) getUInt16();
     d_qclass = (DNSClass) getUInt16();
   }
+
   if(dh.arcount) {
+    auto nowpos=payloadpos;
+    skipRRs(ntohs(dh.ancount) + ntohs(dh.nscount) + ntohs(dh.arcount) - 1);
     if(getUInt8() == 0 && getUInt16() == (uint16_t)DNSType::OPT) {
       xfrUInt16(d_bufsize);
       getUInt8(); // extended RCODE
@@ -24,9 +27,9 @@ DNSMessageReader::DNSMessageReader(const char* in, uint16_t size)
       auto flags=getUInt8();
       d_doBit = flags & 0x80;
       getUInt8(); getUInt16(); // ignore rest
-      cout<<"   There was an EDNS section, size supported: "<< d_bufsize<<endl;
       d_haveEDNS = true;
     }
+    payloadpos=nowpos;
   }
 }
 
@@ -40,6 +43,7 @@ void DNSMessageReader::xfrName(DNSName& res, uint16_t* pos)
       uint16_t labellen2 = getUInt8(pos);
       uint16_t newpos = ((labellen & ~0xc0) << 8) | labellen2;
       newpos -= sizeof(dnsheader); // includes struct dnsheader
+      //      cout<< res<<" "<<(*pos -2) << " -> "<<newpos<<endl;
       if(newpos < *pos) {
         res=res+getName(&newpos);
         return;
@@ -67,6 +71,18 @@ bool DNSMessageReader::getEDNS(uint16_t* bufsize, bool* doBit) const
   *bufsize = d_bufsize;
   *doBit = doBit;
   return true;
+}
+
+void DNSMessageReader::skipRRs(int num)
+{
+  for(int n = 0; n < num; ++n) {
+    getName();
+    payloadpos += 8; // type, class, ttl
+    auto len = getUInt16();
+    payloadpos += len;
+    if(payloadpos >= payload.size())
+      throw std::out_of_range("Asked to skip beyond end of packet");
+  }
 }
 
 bool DNSMessageReader::getRR(DNSSection& section, DNSName& name, DNSType& type, uint32_t& ttl, std::unique_ptr<RRGen>& content)
@@ -104,7 +120,7 @@ void DNSMessageWriter::xfrName(const DNSName& name, bool compress)
     
     if(node) {
       //      cout<<" Did lookup for "<<oname<<", left: "<<fname<<", node: "<<flast<<", pos: "<<node->namepos<<endl;
-      if(flast.size() > 1) {
+      if(flast.size() >= 1) {
         uint16_t pos = node->namepos;
         //        cout<<" Using the pointer we found to pos "<<pos<<", have to emit "<<fname.size()<<" labels first"<<endl;
 
@@ -130,7 +146,7 @@ void DNSMessageWriter::xfrName(const DNSName& name, bool compress)
     if(!d_nocompress) { // even with compress=false, we want to store this name, unless this is a nocompress message (AXFR)
       auto anode = d_comptree->add(oname);
       if(!anode->namepos) {
-        //    cout<<"Storing that "<<oname<<" can be found at "<<payloadpos + 12 <<endl;
+        //        cout<<"Storing that "<<oname<<" can be found at " << payloadpos + 12 << endl;
         anode->namepos = payloadpos + 12;
       }
     }
@@ -213,8 +229,9 @@ void DNSMessageWriter::clearRRs()
 string DNSMessageWriter::serialize() 
 {
   try {
-    if(haveEDNS && dh.arcount == 0) {
-      cout<<"Adding EDNS to DNS Message"<<endl;
+    if(haveEDNS && !d_serialized) {
+      d_serialized=true;
+      cout<<"\tAdding EDNS to DNS Message"<<endl;
       putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
     }
     std::string ret((const char*)&dh, ((const char*)&dh) + sizeof(dnsheader));
@@ -235,7 +252,6 @@ string DNSMessageWriter::serialize()
 
 void DNSMessageWriter::setEDNS(uint16_t newsize, bool doBit, RCode ercode)
 {
-  cout<<"Setting new buffer size "<<newsize<<" for writer"<<endl;
   if(newsize > sizeof(dnsheader))
     payload.resize(newsize - sizeof(dnsheader));
   d_doBit = doBit;

@@ -1,8 +1,26 @@
 #include "dns-storage.hh"
 #include "record-types.hh"
+#include "sclasses.hh"
+using namespace std;
 
 void loadZones(DNSNode& zones)
 {
+  auto addresses=resolveName("f.root-servers.net"); // this retrieves IPv4 and IPv6
+  for(auto& a: addresses) {
+    try {
+      a.sin4.sin_port = htons(53);
+      zones.add({})->zone=retrieveZone(a, {});
+      break;
+    }
+    catch(std::exception& e) {
+      cout<<"Unable to retrieve root zone from f-root server "+a.toStringWithPort()<<": " << e.what() << endl;
+    }
+  }
+  /*
+  zones.add({"hubertnet", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"hubertnet", "nl"});
+  zones.add({"ds9a", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"ds9a", "nl"});
+  */
+
   auto zone = zones.add({"tdns", "powerdns", "org"});
   auto newzone = std::make_unique<DNSNode>(); 
   

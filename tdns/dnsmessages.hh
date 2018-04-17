@@ -21,6 +21,7 @@ public:
   bool getEDNS(uint16_t* newsize, bool* doBit) const;
 
   bool getRR(DNSSection& section, DNSName& name, DNSType& type, uint32_t& ttl, std::unique_ptr<RRGen>& content);
+  void skipRRs(int n); //!< Skip over n RRs
   
   uint8_t d_ednsVersion{0};
 
@@ -140,10 +141,9 @@ public:
   }
   
   void xfrName(const DNSName& name, bool compress=true);
-
-    
 private:
   std::unique_ptr<DNSNode> d_comptree;
   void putEDNS(uint16_t bufsize, RCode ercode, bool doBit);
+  bool d_serialized{false};  // needed to make serialize() idempotent
 };
 

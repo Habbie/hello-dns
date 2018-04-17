@@ -26,42 +26,7 @@ using namespace std;
 
 */
 
-/** \brief Looks up additional records
-
-   This function is called to do additional processing on records we encountered 
-   earlier that would benefit. This includes MX and NS records.
-
-   Note that this function will only ook within 'bestzone', the best zone we had 
-   for the original query. This means we will not look at potentially helpful 
-   records in other zones. RFCs tell us that resolvers should not use/trust such
-   out of zone data anyhow, but no RFC tells us we should not add that data.
-
-   But we don't */
-void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response)
-{
-  for(auto addname : toresolve ) {
-    cout<<"Doing additional or glue lookup for "<<addname<<" in "<<zone<<endl;
-    if(!addname.makeRelative(zone)) {
-      cout<<addname<<" is not within our zone, not doing glue"<<endl;
-      continue;
-    }
-    DNSName wuh;
-    auto addnode = bestzone->find(addname, wuh);
-    if(!addnode || !addname.empty())  {
-      cout<<"  Found nothing, continuing"<<endl;
-      continue;
-    }
-    for(auto& type : {DNSType::A, DNSType::AAAA}) {
-      auto iter2 = addnode->rrsets.find(type);
-      if(iter2 != addnode->rrsets.end()) {
-        const auto& rrset = iter2->second;
-        for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Additional, wuh+zone, type, rrset.ttl, rr);
-        }
-      }
-    }
-  }  
-}
+void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response);
 
 /** \brief This is the main DNS logic function
 
@@ -98,8 +63,9 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     uint16_t newsize; bool doBit;
 
     if(dm.getEDNS(&newsize, &doBit)) {
+      cout<<"\tHave EDNS, buffer size = "<<newsize<<", DO bit = "<<doBit<<endl;
       if(dm.d_ednsVersion != 0) {
-        cout<<"Bad EDNS version: "<<(int)dm.d_ednsVersion<<endl;
+        cout<<"\tBad EDNS version: "<<(int)dm.d_ednsVersion<<endl;
         response.setEDNS(newsize, doBit, RCode::Badvers);
         return true;
       }
@@ -107,13 +73,13 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     }
     
     if(qtype == DNSType::AXFR || qtype == DNSType::IXFR)  {
-      cout<<"Query was for AXFR or IXFR over UDP, can't do that"<<endl;
+      cout<<"\tQuery was for AXFR or IXFR over UDP, can't do that"<<endl;
       response.dh.rcode = (int)RCode::Servfail;
       return true;
     }
 
     if(dm.dh.opcode != 0) {
-      cout<<"Query had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
+      cout<<"\tQuery had non-zero opcode "<<dm.dh.opcode<<", sending NOTIMP"<<endl;
       response.dh.rcode = (int)RCode::Notimp;
       return true;
     }
@@ -122,13 +88,13 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     DNSName zonename;
     auto fnd = zones.find(qname, zonename); 
     if(!fnd || !fnd->zone) {  // check if we found an actual zone
-      cout<<"No zone matched"<<endl;
+      cout<<"\tNo zone matched"<<endl;
       response.dh.rcode = (uint8_t)RCode::Refused;
       return true;
     }
 
     // qname is now relative to the zonename
-    cout<<"---\nFound best zone: "<<zonename<<", qname now "<<qname<<endl;
+    cout<<"\tFound best zone: "<<zonename<<", qname now "<<qname<<endl;
     response.dh.aa = 1; 
     
     auto bestzone = fnd->zone.get(); // this loads a pointer to the zone contents
@@ -145,7 +111,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     auto node = bestzone->find(searchname, lastnode, true, &passedZonecut, &zonecutname);
     if(passedZonecut) {
       response.dh.aa = false;
-      cout<<"This is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
+      cout<<"\tThis is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
 
       auto iter = passedZonecut->rrsets.find(DNSType::NS);  // is there an NS record here? should be!
       if(iter != passedZonecut->rrsets.end()) {
@@ -163,7 +129,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       }
     }
     else if(!searchname.empty()) { // we had parts of the qname that did not match
-      cout<<"This is an NXDOMAIN situation"<<endl;
+      cout<<"\tThis is an NXDOMAIN situation"<<endl;
       if(!CNAMELoopCount) // RFC 1034, 4.3.2, step 3.c
         response.dh.rcode = (int)RCode::Nxdomain;
 
@@ -171,19 +137,21 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
     }
     else {
-      cout<<"Found something in zone '"<<zonename<<"' for lhs '"<<qname<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
+      cout<<"\tFound node in zone '"<<zonename<<"' for lhs '"<<qname<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
       
       decltype(node->rrsets)::const_iterator iter;
 
       vector<DNSName> additional;
       // first we always check for a CNAME, which should be the only RRType at a node if present
       if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
+
         const auto& rrset = iter->second;
         response.putRR(DNSSection::Answer, lastnode+zonename, DNSType::CNAME, rrset.ttl, rrset.contents[0]);
         DNSName target=dynamic_cast<CNAMEGen*>(rrset.contents[0].get())->d_name;
 
         // we'll only follow in-zone CNAMEs, which is not quite per-RFC, but a good idea
         if(target.makeRelative(zonename)) {
+          cout<<"\tFound CNAME, chasing to "<<target<<endl;
           searchname = target; 
           if(qtype != DNSType::CNAME && CNAMELoopCount++ < 10) {  // do not loop if they *wanted* the CNAME
             lastnode.clear();
@@ -209,22 +177,22 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         }
       }
       else {
-        cout<<"Node exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
+        cout<<"\tNode exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
         const auto& rrset = bestzone->rrsets[DNSType::SOA];
         response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
       }
-      addAdditional(bestzone, zonename, additional, response);      
+      addAdditional(bestzone, zonename, additional, response);
     }
     return true;
   }
   catch(std::out_of_range& e) { // exceeded packet size
-    cout<<"Query for '"<<origname<<"'|"<<qtype<<" got truncated"<<endl;
+    cout<<"\tQuery for '"<<origname<<"'|"<<qtype<<" got truncated"<<endl;
     response.clearRRs(); 
     response.dh.aa = 0;   response.dh.tc = 1; 
     return true;
   }
   catch(std::exception& e) {
-    cout<<"Error processing query: "<<e.what()<<endl;
+    cout<<"\tError processing query: "<<e.what()<<endl;
     return false;
   }
 }
@@ -252,6 +220,45 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
       SSendto(*sock, response.serialize(), remote);
     }
   }
+}
+
+/** \brief Looks up additional records
+
+   This function is called to do additional processing on records we encountered 
+   earlier that would benefit. This includes MX and NS records.
+
+   Note that this function will only ook within 'bestzone', the best zone we had 
+   for the original query. This means we will not look at potentially helpful 
+   records in other zones. RFCs tell us that resolvers should not use/trust such
+   out of zone data anyhow, but no RFC tells us we should not add that data.
+
+   But we don't */
+void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response)
+try
+{
+  for(auto addname : toresolve ) {
+    if(!addname.makeRelative(zone)) {
+      //      cout<<addname<<" is not within our zone, not doing glue"<<endl;
+      continue;
+    }
+    DNSName wuh;
+    auto addnode = bestzone->find(addname, wuh);
+    if(!addnode || !addname.empty())  {
+      continue;
+    }
+    for(auto& type : {DNSType::A, DNSType::AAAA}) {
+      auto iter2 = addnode->rrsets.find(type);
+      if(iter2 != addnode->rrsets.end()) {
+        const auto& rrset = iter2->second;
+        for(const auto& rr : rrset.contents) {
+          response.putRR(DNSSection::Additional, wuh+zone, type, rrset.ttl, rr);
+        }
+      }
+    }
+  }  
+}
+catch(std::out_of_range& e) { // exceeded packet size
+  cout<<"\tAdditional records would have overflowed the packet, stopped adding them, not truncating yet\n";
 }
 
 /* helper function which encapsulates a DNS message within an 'envelope' 
@@ -380,7 +387,7 @@ void tcpClientThread(ComboAddress remote, int s, const DNSNode* zones)
   }
 }
 
-// connects to remote, retrieves a zone, returns it as a smart pointer
+//! connects to remote, retrieves a zone, returns it as a smart pointer
 std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName& zone)
 {
   cout<<"Attempting to retrieve zone "<<zone<<" from "<<remote.toStringWithPort()<<endl;
@@ -394,6 +401,7 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
   auto ret = std::make_unique<DNSNode>();
   
   int soaCount=0;
+  uint32_t rrcount=0;
   for(;;) {
     uint16_t len = tcpGetLen(tcp);
     string message = SRead(tcp, len);
@@ -410,7 +418,9 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
     DNSSection rrsection;
     uint32_t ttl;
     std::unique_ptr<RRGen> rr;
+
     while(dmr.getRR(rrsection, rrname, rrtype, ttl, rr)) {
+      ++rrcount;
       if(!rrname.makeRelative(zone))
         continue;
       if(rrtype == DNSType::SOA && ++soaCount==2)
@@ -421,7 +431,7 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
     }
   }
  done:
-  cout<<"Done with AXFR"<<endl;
+  cout<<"Done with AXFR of "<<zone<<" from "<<remote.toStringWithPort()<<", retrieved "<<rrcount<<" records"<<endl;
   return ret;
 }
 
@@ -432,29 +442,30 @@ try
     cerr<<"Syntax: tdns ipaddress:port"<<endl;
     return(EXIT_FAILURE);
   }
+  cout<<"Hello and welcome to tdns, the teaching authoritative nameserver"<<endl;
   signal(SIGPIPE, SIG_IGN);
 
+
+  
   ComboAddress local(argv[1], 53);
 
   Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
   SBind(udplistener, local);
 
+  
   Socket tcplistener(local.sin4.sin_family, SOCK_STREAM);
   SSetsockopt(tcplistener, SOL_SOCKET, SO_REUSEPORT, 1);
   SBind(tcplistener, local);
   SListen(tcplistener, 10);
-  
-  DNSNode zones;
 
+  DNSNode zones;
+  cout<<"Loading & retrieving zone data"<<endl;
   loadZones(zones);
 
-  /*
-  zones.add({})->zone=retrieveZone(ComboAddress("2001:500:2f::f", 53), {});
-  zones.add({"hubertnet", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"hubertnet", "nl"});
-  zones.add({"ds9a", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"ds9a", "nl"});
-  */
-  thread udpServer(udpThread, local, &udplistener, &zones);
+  cout<<"Listening on TCP & UDP on "<<local.toStringWithPort()<<endl;
 
+  thread udpServer(udpThread, local, &udplistener, &zones);
+  cout<<"Server is live"<<endl;
   for(;;) {
     ComboAddress remote(local); // this sets the family correctly
     int client = SAccept(tcplistener, remote);

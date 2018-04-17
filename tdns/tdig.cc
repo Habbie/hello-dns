@@ -41,26 +41,26 @@ try
 
   DNSMessageWriter dmw(dn, dt);
   dmw.dh.rd = true;
+  dmw.setEDNS(4000, false);
   
   Socket sock(server.sin4.sin_family, SOCK_DGRAM);
   SConnect(sock, server);
   SWrite(sock, dmw.serialize());
   string resp =SRecvfrom(sock, 65535, server);
+
   DNSMessageReader dmr(resp);
   DNSName rrname;
   DNSType rrtype;
   DNSSection rrsection;
   uint32_t ttl;
   std::unique_ptr<RRGen> rr;
-  
-  cout<<"Received response with RCode "<<(RCode)dmr.dh.rcode<<endl;
+  dmr.getQuestion(rrname, rrtype);
+  cout<<"Received "<<resp.size()<<" byte response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<rrname<<", qtype "<<rrtype<<endl;
   while(dmr.getRR(rrsection, rrname, rrtype, ttl, rr)) {
     cout << rrname<< " IN " << rrtype << " " << ttl << " " <<rr->toString()<<endl;
   }
 
-
-
- }
+}
 catch(std::exception& e)
 {
   cerr<<"Fatal error: "<<e.what()<<endl;
