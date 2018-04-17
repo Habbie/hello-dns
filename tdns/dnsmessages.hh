@@ -1,9 +1,13 @@
 #pragma once
-#include "dns.hh"
 #include "dns-storage.hh"
 #include "record-types.hh"
 #include <arpa/inet.h>
 #include <vector>
+
+/*!
+  @file
+  @brief Defines DNSMessageReader and DNSMessageWriter
+*/
 
 //! A class that parses a DNS Message 
 class DNSMessageReader
@@ -20,37 +24,45 @@ public:
   //! Returns true if there was an EDNS record, plus copies details
   bool getEDNS(uint16_t* newsize, bool* doBit) const;
 
+  //! Puts the next RR in content, unless at 'end of message', in which case it returns false
   bool getRR(DNSSection& section, DNSName& name, DNSType& type, uint32_t& ttl, std::unique_ptr<RRGen>& content);
   void skipRRs(int n); //!< Skip over n RRs
   
   uint8_t d_ednsVersion{0};
 
-  void xfrName(DNSName& ret, uint16_t* pos=0);
+  void xfrName(DNSName& ret, uint16_t* pos=0); //!< put the next name in ret, or copy it from pos
+  //! Convenience form of xfrName that returns its result
   DNSName getName(uint16_t* pos=0) { DNSName res; xfrName(res, pos); return res;}
+  //! Gets the next 8 bit unsigned integer from the message, or the one from 'pos'
   void xfrUInt8(uint8_t&res, uint16_t* pos = 0)
   {
     if(!pos) pos = &payloadpos;
     res=payload.at((*pos)++);
   }
-  uint8_t getUInt8(uint16_t* pos=0)
+  //! Convenience form that returns the next 8 bit integer, or from pos
+  uint8_t getUInt8(uint16_t* pos=0) 
   { uint8_t ret; xfrUInt8(ret, pos); return ret; }
-    
+
+  //! Gets the next 16 bit unsigned integer from the message
   void xfrUInt16(uint16_t& res)
   {
     memcpy(&res, &payload.at(payloadpos+1)-1, 2);
     payloadpos+=2;
     res=htons(res);
   }
+  //! Convenience form that returns the next 16 bit integer
   uint16_t getUInt16()
   { uint16_t ret; xfrUInt16(ret); return ret; }
-  
+
+  //! Gets the next 32 bit unsigned integer from the message
   void xfrUInt32(uint32_t& res)
   {
     memcpy(&res, &payload.at(payloadpos+3)-3, 4);
     payloadpos+=4;
     res=ntohl(res);
   }
-  
+
+  //! Gets the next size bytes from the message, of from pos
   void xfrBlob(std::string& blob, int size, uint16_t* pos = 0)
   {
     if(!pos) pos = &payloadpos;
@@ -62,6 +74,7 @@ public:
     (*pos) += size;
   }
 
+  //! Convenience function that returns next size bytes of the message, or from pos
   std::string getBlob(int size, uint16_t* pos = 0)
   {
     std::string res;

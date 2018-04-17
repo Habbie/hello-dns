@@ -1,7 +1,12 @@
 #include "record-types.hh"
 #include <iomanip>
 
-/* this exploits the similarity in writing/reading DNS messages
+/*! 
+   @file
+   @brief Defines has the actual Resource Record Generators
+*/
+
+/*! this exploits the similarity in writing/reading DNS messages
    and outputting master file format text */
 struct StringBuilder
 {
@@ -23,7 +28,6 @@ struct StringBuilder
   }
   std::string& d_string;
 };
-
 
 AGen::AGen(DNSMessageReader& x)
 {

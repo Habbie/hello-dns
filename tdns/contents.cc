@@ -3,6 +3,12 @@
 #include "sclasses.hh"
 using namespace std;
 
+/*! 
+   @file
+   @brief Actual zone contents can be put / retrieved from this file
+*/
+
+//! Called by tdns.cc main() to load user content
 void loadZones(DNSNode& zones)
 {
   auto addresses=resolveName("f.root-servers.net"); // this retrieves IPv4 and IPv6

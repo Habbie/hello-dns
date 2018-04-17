@@ -11,6 +11,52 @@
 #include "nenum.hh"
 #include "comboaddress.hh"
 
+/*! 
+   @file
+   @brief Defines DNSLabel, DNSType, DNSClass and DNSNode, which together store DNS details
+*/
+
+// note - some platforms are confused over these #defines. Specifically, BYTE_ORDER without __ is a false prophet and may lie!
+
+//! DNS header struct
+struct dnsheader {
+        unsigned        id :16;         /* query identification number */
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+                        /* fields in third byte */
+        unsigned        qr: 1;          /* response flag */
+        unsigned        opcode: 4;      /* purpose of message */
+        unsigned        aa: 1;          /* authoritative answer */
+        unsigned        tc: 1;          /* truncated message */
+        unsigned        rd: 1;          /* recursion desired */
+                        /* fields in fourth byte */
+        unsigned        ra: 1;          /* recursion available */
+        unsigned        unused :1;      /* unused bits (MBZ as of 4.9.3a3) */
+        unsigned        ad: 1;          /* authentic data from named */
+        unsigned        cd: 1;          /* checking disabled by resolver */
+        unsigned        rcode :4;       /* response code */
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ 
+                        /* fields in third byte */
+        unsigned        rd :1;          /* recursion desired */
+        unsigned        tc :1;          /* truncated message */
+        unsigned        aa :1;          /* authoritative answer */
+        unsigned        opcode :4;      /* purpose of message */
+        unsigned        qr :1;          /* response flag */
+                        /* fields in fourth byte */
+        unsigned        rcode :4;       /* response code */
+        unsigned        cd: 1;          /* checking disabled by resolver */
+        unsigned        ad: 1;          /* authentic data from named */
+        unsigned        unused :1;      /* unused bits (MBZ as of 4.9.3a3) */
+        unsigned        ra :1;          /* recursion available */
+#endif
+                        /* remaining bytes */
+        uint16_t        qdcount;    /* number of question entries */
+        uint16_t        ancount;    /* number of answer entries */
+        uint16_t        nscount;    /* number of authority entries */
+        uint16_t        arcount;    /* number of resource entries */
+};
+
+static_assert(sizeof(dnsheader) == 12, "dnsheader size must be 12");
+
 // enums
 enum class RCode 
 {
@@ -39,10 +85,10 @@ enum class DNSClass : uint16_t
 };
 SMARTENUMSTART(DNSClass) SENUM2(DNSClass, IN, CHAOS) SMARTENUMEND(DNSClass)
 
-COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3)
+COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3);
+// this semicolon makes Doxygen happy
 
-
-//! Represents a DNS label, which is part of a DNS Name
+/*! \brief Represents a DNS label, which is part of a DNS Name */
 class DNSLabel
 {
 public:
@@ -109,9 +155,9 @@ DNSName operator+(const DNSName& a, const DNSName& b);
 
 class DNSMessageWriter;
 
-/* this is the how all resource records are stored, as generators
-   that can convert their content to a human readable string or to a DNSMessage
-*/
+/*!  this is the how all resource records are stored, as generators
+ *   that can convert their content to a human readable string or to a DNSMessage
+ */
 struct RRGen
 {
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
@@ -119,7 +165,7 @@ struct RRGen
   virtual DNSType getType() const = 0;
 };
 
-/* Resource records are treated as a set and have one TTL for the whole set */
+//! Resource records are treated as a set and have one TTL for the whole set
 struct RRSet
 {
   std::vector<std::unique_ptr<RRGen>> contents;
@@ -130,7 +176,7 @@ struct RRSet
   uint32_t ttl{3600};
 };
 
-/* A node in the DNS tree */
+//! A node in the DNS tree 
 struct DNSNode
 {
   ~DNSNode();
@@ -140,23 +186,24 @@ struct DNSNode
   //! This is an idempotent way to add a node to a DNS tree
   DNSNode* add(DNSName name);
   
-  // add one or more generators to this node  
+  //! add one RRGen to this node  
   void addRRs(std::unique_ptr<RRGen>&&a);
+  //! add multiple RRGen to this node  
   template<typename... Types>
   void addRRs(std::unique_ptr<RRGen>&&a, Types&&... args)
   {
     addRRs(std::move(a));
     addRRs(std::forward<Types>(args)...);
   }
-  
+  //! Walk the tree and visit each node
   void visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const;
 
-  // children, found by DNSLabel
+  //! children, found by DNSLabel
   std::map<DNSLabel, DNSNode> children;
 
-  // the RRSets, grouped by type
+  // !the RRSets, grouped by type
   std::map<DNSType, RRSet > rrsets;
-  std::unique_ptr<DNSNode> zone; // if this is set, this node is a zone
+  std::unique_ptr<DNSNode> zone; //!< if this is set, this node is a zone
   uint16_t namepos{0}; //!< for label compression, we also use DNSNodes
 };
 

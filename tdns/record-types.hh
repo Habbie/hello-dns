@@ -6,7 +6,10 @@
 
 class DNSMessageReader;
 
-/* 
+/*! 
+   @file
+   @brief Defines all Resource Record Generators
+
    Generators know about a record type's contents. 
    They also know how to inject themselves into a DNSMessageWriter, parse themselves from a DNSMessageReader 
    and how to convert themselves into a master file representation.
@@ -30,7 +33,7 @@ struct AGen : RRGen
 
   uint32_t d_ip; // the actual IP
 };
-
+//! Generates an AAAA (IPv6 address) record
 struct AAAAGen : RRGen
 {
   AAAAGen(DNSMessageReader& dmr);
@@ -50,6 +53,7 @@ struct AAAAGen : RRGen
   unsigned char d_ip[16];
 };
 
+//! Generates a SOA Resource Record
 struct SOAGen : RRGen
 {
   SOAGen(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800) :
@@ -71,6 +75,7 @@ struct SOAGen : RRGen
   uint32_t d_serial, d_minimum, d_refresh, d_retry, d_expire;
 };
 
+//! Generates a CNAME Resource Record
 struct CNAMEGen : RRGen
 {
   CNAMEGen(const DNSName& name) : d_name(name) {}
@@ -86,6 +91,7 @@ struct CNAMEGen : RRGen
   DNSName d_name;
 };
 
+//! Generates a PTR Resource Record
 struct PTRGen : RRGen
 {
   PTRGen(const DNSName& name) : d_name(name) {}
@@ -100,6 +106,7 @@ struct PTRGen : RRGen
   DNSName d_name;
 };
 
+//! Generates an NS Resource Record
 struct NSGen : RRGen
 {
   NSGen(const DNSName& name) : d_name(name) {}
@@ -114,7 +121,7 @@ struct NSGen : RRGen
   DNSName d_name;
 };
 
-
+//! Generates an MX Resource Record
 struct MXGen : RRGen
 {
   MXGen(uint16_t prio, const DNSName& name) : d_prio(prio), d_name(name) {}
@@ -131,6 +138,7 @@ struct MXGen : RRGen
   DNSName d_name;
 };
 
+//! Generates an TXT Resource Record
 struct TXTGen : RRGen
 {
   TXTGen(const std::string& txt) : d_txt(txt) {}
@@ -144,7 +152,7 @@ struct TXTGen : RRGen
   std::string d_txt;
 };
 
-/* This implements 'unknown record types' */
+//! This implements 'unknown record types'
 struct UnknownGen : RRGen
 {
   UnknownGen(DNSType type, const std::string& rr) : d_type(type), d_rr(rr) {}
@@ -155,6 +163,7 @@ struct UnknownGen : RRGen
   DNSType getType() const override { return d_type; }
 };
 
+//! This implements a fun dynamic TXT record type 
 struct ClockTXTGen : RRGen
 {
   ClockTXTGen(const std::string& format) : d_format(format) {}

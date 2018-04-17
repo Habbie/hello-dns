@@ -3,10 +3,15 @@
 #include <map>
 #include <stdexcept>
 #include "sclasses.hh"
-#include "dns.hh"
 #include <thread>
 #include <signal.h>
 #include "record-types.hh"
+
+/*! 
+   @file
+   @brief Tiny 'dig'-like utility to create DNS queries & print responses
+*/
+
 
 using namespace std;
 

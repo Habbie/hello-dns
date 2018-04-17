@@ -11,7 +11,6 @@
 #include <map>
 #include <stdexcept>
 #include "sclasses.hh"
-#include "dns.hh"
 #include <thread>
 #include <signal.h>
 #include "record-types.hh"
@@ -261,7 +260,9 @@ catch(std::out_of_range& e) { // exceeded packet size
   cout<<"\tAdditional records would have overflowed the packet, stopped adding them, not truncating yet\n";
 }
 
-/* helper function which encapsulates a DNS message within an 'envelope' 
+/*! \brief Writes a DNSMessageWriter to a TCP/IP socket, with length envelope
+
+   helper function which encapsulates a DNS message within an 'envelope' 
    Note that it is highly recommended to send the envelope (with length)
    as a single call. This saves packets and works around implementation bugs
    over at resolvers */
@@ -274,7 +275,7 @@ static void writeTCPMessage(int sock, DNSMessageWriter& response)
   SWriten(sock, ser); 
 }
 
-/* helper to read a 16 bit length in network order. Returns 0 on EOF */
+/*! helper to read a 16 bit length in network order. Returns 0 on EOF */
 uint16_t tcpGetLen(int sock)
 {
   string message = SRead(sock, 2);
@@ -288,7 +289,7 @@ uint16_t tcpGetLen(int sock)
   return htons(len);
 }
 
-/* spawned for each new TCP/IP client. In actual production this is not a good idea */
+/*! spawned for each new TCP/IP client. In actual production this is not a good idea. */
 void tcpClientThread(ComboAddress remote, int s, const DNSNode* zones)
 {
   signal(SIGPIPE, SIG_IGN);
@@ -387,7 +388,7 @@ void tcpClientThread(ComboAddress remote, int s, const DNSNode* zones)
   }
 }
 
-//! connects to remote, retrieves a zone, returns it as a smart pointer
+//! connects to an authoritative server, retrieves a zone, returns it as a smart pointer
 std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName& zone)
 {
   cout<<"Attempting to retrieve zone "<<zone<<" from "<<remote.toStringWithPort()<<endl;
@@ -435,6 +436,7 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
   return ret;
 }
 
+//! This is the main tdns function
 int main(int argc, char** argv)
 try
 {
@@ -444,8 +446,6 @@ try
   }
   cout<<"Hello and welcome to tdns, the teaching authoritative nameserver"<<endl;
   signal(SIGPIPE, SIG_IGN);
-
-
   
   ComboAddress local(argv[1], 53);
 
