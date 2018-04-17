@@ -62,7 +62,7 @@ As a bonus:
 What this means is that with `tdns`, you can actually host your domain name,
 or even slave it from another master server.
 
-# What makes `tdig` different?
+# What makes `tdns` different?
 There is no shortage of nameservers.  In fact, there is an embarrassing
 richness of very good ones out there already.  So why bother?  The biggest
 problem with DNS today is not the great open source implementations.  It is
