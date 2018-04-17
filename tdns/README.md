@@ -28,11 +28,16 @@ The goals of tdns are:
  * Protocol correctness, except where the protocol needs updating
  * Suitable for educational purposes
  * Display best practices, both in DNS and security
+ * **Be a living warning for how hard it is to write a nameserver correctly**
 
 Non-goals are:
 
- * Performance
+ * Performance (beyond 100kqps)
  * Implementing more features (unless very educational)
+ * DNSSEC (for now)
+
+A more narrative explanation of what `tdns` is and what we hope it will
+achieve can be found [here](intro.md.html).
 
 # Current status
 All 'basic DNS' items are implemented:
@@ -734,8 +739,8 @@ This class reads a DNS message, and makes available:
  * The dnsheader containing the flags
  * EDNS buffer size and value of DNSSEC Ok flag
 
-This is not a general purpose DNS Message reader. It can't parse resource
-records for example. It is meant for parsing queries. 
+~This is not a general purpose DNS Message reader. It can't parse resource
+records for example. It is meant for parsing queries.~
 
 Of specific security note, this is one area where we might potentially have
 to do pointer arithmetic. For security purposes, `DNSMessageReader` uses
