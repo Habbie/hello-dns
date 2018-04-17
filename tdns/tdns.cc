@@ -133,7 +133,9 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         response.dh.rcode = (int)RCode::Nxdomain;
 
       const auto& rrset = bestzone->rrsets[DNSType::SOA]; // fetch the SOA record to indicate NXDOMAIN ttl
-      response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+      auto ttl = min(rrset.ttl, dynamic_cast<SOAGen*>(rrset.contents[0].get())->d_minimum); // 2308 3
+
+      response.putRR(DNSSection::Authority, zonename, DNSType::SOA, ttl, rrset.contents[0]);
     }
     else {
       cout<<"\tFound node in zone '"<<zonename<<"' for lhs '"<<qname<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
@@ -179,7 +181,9 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       else {
         cout<<"\tNode exists, qtype doesn't, NOERROR situation, inserting SOA"<<endl;
         const auto& rrset = bestzone->rrsets[DNSType::SOA];
-        response.putRR(DNSSection::Authority, zonename, DNSType::SOA, rrset.ttl, rrset.contents[0]);
+        auto ttl = min(rrset.ttl, dynamic_cast<SOAGen*>(rrset.contents[0].get())->d_minimum); // 2308 3
+
+        response.putRR(DNSSection::Authority, zonename, DNSType::SOA, ttl, rrset.contents[0]);
       }
       addAdditional(bestzone, zonename, additional, response);
     }
