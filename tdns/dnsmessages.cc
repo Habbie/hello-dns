@@ -97,6 +97,7 @@ bool DNSMessageReader::getRR(DNSSection& section, DNSName& name, DNSType& type, 
   // this should care about RP, AFSDB, NAPTR, and SRV too (RFC3597)
 #define CONVERT(x) if(type == DNSType::x) { content = std::make_unique<x##Gen>(*this);} else
   CONVERT(A) CONVERT(AAAA) CONVERT(NS) CONVERT(SOA) CONVERT(MX) CONVERT(CNAME)
+  CONVERT(NAPTR) CONVERT(SRV)
   CONVERT(PTR) 
   {
     content = std::make_unique<UnknownGen>(type, getBlob(len));

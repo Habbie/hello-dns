@@ -75,6 +75,44 @@ struct SOAGen : RRGen
   uint32_t d_serial, d_minimum, d_refresh, d_retry, d_expire;
 };
 
+//! Generates a SRV Resource Record
+struct SRVGen : RRGen
+{
+  SRVGen(uint16_t preference, uint16_t weight, uint16_t port, const DNSName& target) : 
+    d_preference(preference), d_weight(weight), d_port(port), d_target(target)
+  {}
+
+  SRVGen(DNSMessageReader& dmr);
+  void toMessage(DNSMessageWriter& dpw) override;
+  DNSType getType() const override { return DNSType::SRV; }
+  std::string toString() const override;
+  void doConv(auto& x);
+
+  uint16_t d_preference, d_weight, d_port;
+  DNSName d_target;
+};
+
+//! Generates a NAPTR Resource Record
+struct NAPTRGen : RRGen
+{
+  NAPTRGen(uint16_t order, uint16_t pref, const std::string& flags,
+           const std::string& services, const std::string& regexp,
+           const DNSName& replacement) : 
+    d_order(order), d_pref(pref), d_flags(flags), d_services(services), d_regexp(regexp), d_replacement(replacement)
+  {}
+
+  NAPTRGen(DNSMessageReader& dmr);
+  void toMessage(DNSMessageWriter& dpw) override;
+  DNSType getType() const override { return DNSType::NAPTR; }
+  std::string toString() const override;
+  void doConv(auto& x);
+
+  uint16_t d_order, d_pref;
+  std::string d_flags, d_services, d_regexp;
+  DNSName d_replacement;
+};
+
+
 //! Generates a CNAME Resource Record
 struct CNAMEGen : RRGen
 {

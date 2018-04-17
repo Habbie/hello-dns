@@ -62,6 +62,11 @@ public:
     res=ntohl(res);
   }
 
+  void xfrTxt(std::string& blob)
+  {
+    auto len = getUInt8();
+    xfrBlob(blob, len);
+  }
   //! Gets the next size bytes from the message, of from pos
   void xfrBlob(std::string& blob, int size, uint16_t* pos = 0)
   {
@@ -142,6 +147,14 @@ public:
     payloadpos += sizeof(val);
   }
 
+  void xfrTxt(std::string& blob)
+  {
+    if(blob.size() > 255)
+      throw std::runtime_error("Overly large TXT segment");
+    xfrUInt8(blob.size());
+    xfrBlob(blob);
+  }
+  
   void xfrBlob(const std::string& blob)
   {
     memcpy(&payload.at(payloadpos+blob.size()) - blob.size(), blob.c_str(), blob.size());

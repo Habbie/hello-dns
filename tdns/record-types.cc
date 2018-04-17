@@ -25,7 +25,12 @@ struct StringBuilder
     if(!d_string.empty()) d_string.append(1, ' ');
     d_string += std::to_string(v);
   }
-  
+  // XXX SHOULD ESCAPE
+  void xfrTxt(const std::string& txt)
+  {
+    if(!d_string.empty()) d_string.append(1, ' ');
+    d_string += "\"" + txt + "\"";
+  }
   std::string d_string;
 };
 
@@ -81,6 +86,24 @@ std::string AAAAGen::toString() const
 
 ////////////////////////////////////////
 
+
+#define BOILERPLATE(x)                                  \
+x##Gen::x##Gen(DNSMessageReader& dmr)                   \
+{                                                       \
+  doConv(dmr);                                          \
+}                                                       \
+void x##Gen::toMessage(DNSMessageWriter& dmw)           \
+{                                                       \
+  doConv(dmw);                                          \
+}                                                       \
+std::string x##Gen::toString() const                    \
+{                                                       \
+  StringBuilder sb;                                     \
+  const_cast<x##Gen*>(this)->doConv(sb);                \
+  return sb.d_string;                                   \
+}                                                       \
+///////////////////////////////
+
 void SOAGen::doConv(auto& x) 
 {
   x.xfrName(d_mname);    x.xfrName(d_rname);
@@ -88,25 +111,26 @@ void SOAGen::doConv(auto& x)
   x.xfrUInt32(d_retry);   x.xfrUInt32(d_expire);
   x.xfrUInt32(d_minimum);
 }
+BOILERPLATE(SOA)
+////////////////
 
-SOAGen::SOAGen(DNSMessageReader& dmr)
+void SRVGen::doConv(auto& x)
 {
-  doConv(dmr);
+  x.xfrUInt16(d_preference); x.xfrUInt16(d_weight); x.xfrUInt16(d_port); 
+  x.xfrName(d_target);
 }
+BOILERPLATE(SRV)
+////////////////
 
-void SOAGen::toMessage(DNSMessageWriter& dmw)
+void NAPTRGen::doConv(auto& x)
 {
-  doConv(dmw);
+  x.xfrUInt16(d_order); x.xfrUInt16(d_pref);
+  x.xfrTxt(d_flags);   x.xfrTxt(d_services);   x.xfrTxt(d_regexp);
+  x.xfrName(d_replacement);
 }
+BOILERPLATE(NAPTR)
 
-std::string SOAGen::toString() const
-{
-  StringBuilder sb;
-  const_cast<SOAGen*>(this)->doConv(sb);
-  return sb.d_string;
-}
-///////////////////////////////
-
+////////////////////////
 CNAMEGen::CNAMEGen(DNSMessageReader& x)
 {
   x.xfrName(d_name);
@@ -171,8 +195,7 @@ std::string MXGen::toString() const
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
   // XXX should autosplit or throw
-  dmw.xfrUInt8(d_txt.length());
-  dmw.xfrBlob(d_txt);
+  dmw.xfrTxt(d_txt);
 }
 
 std::string TXTGen::toString() const
