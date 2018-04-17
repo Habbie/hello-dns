@@ -70,7 +70,7 @@ struct SOAGen : RRGen
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::SOA; }
   std::string toString() const override;
-  void doConv(auto& x);
+  template<typename X> void doConv(X& x);
   DNSName d_mname, d_rname;
   uint32_t d_serial, d_minimum, d_refresh, d_retry, d_expire;
 };
@@ -86,7 +86,8 @@ struct SRVGen : RRGen
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::SRV; }
   std::string toString() const override;
-  void doConv(auto& x);
+
+  template<typename X> void doConv(X& x);
 
   uint16_t d_preference, d_weight, d_port;
   DNSName d_target;
@@ -105,7 +106,7 @@ struct NAPTRGen : RRGen
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::NAPTR; }
   std::string toString() const override;
-  void doConv(auto& x);
+  template<typename X> void doConv(X& x);
 
   uint16_t d_order, d_pref;
   std::string d_flags, d_services, d_regexp;

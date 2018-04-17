@@ -103,8 +103,8 @@ std::string x##Gen::toString() const                    \
   return sb.d_string;                                   \
 }                                                       \
 ///////////////////////////////
-
-void SOAGen::doConv(auto& x) 
+template<typename X>
+void SOAGen::doConv(X& x) 
 {
   x.xfrName(d_mname);    x.xfrName(d_rname);
   x.xfrUInt32(d_serial);  x.xfrUInt32(d_refresh);
@@ -114,7 +114,8 @@ void SOAGen::doConv(auto& x)
 BOILERPLATE(SOA)
 ////////////////
 
-void SRVGen::doConv(auto& x)
+template<typename X>
+void SRVGen::doConv(X& x)
 {
   x.xfrUInt16(d_preference); x.xfrUInt16(d_weight); x.xfrUInt16(d_port); 
   x.xfrName(d_target);
@@ -122,7 +123,8 @@ void SRVGen::doConv(auto& x)
 BOILERPLATE(SRV)
 ////////////////
 
-void NAPTRGen::doConv(auto& x)
+template<typename X>
+void NAPTRGen::doConv(X& x)
 {
   x.xfrUInt16(d_order); x.xfrUInt16(d_pref);
   x.xfrTxt(d_flags);   x.xfrTxt(d_services);   x.xfrTxt(d_regexp);
