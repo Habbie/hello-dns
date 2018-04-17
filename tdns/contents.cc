@@ -11,11 +11,29 @@ using namespace std;
 //! Called by tdns.cc main() to load user content
 void loadZones(DNSNode& zones)
 {
-  auto addresses=resolveName("f.root-servers.net"); // this retrieves IPv4 and IPv6
+  auto addresses=resolveName("localhost"); // this retrieves IPv4 and IPv6
   for(auto& a: addresses) {
     try {
-      a.sin4.sin_port = htons(53);
+      a.sin4.sin_port = htons(5300);
       zones.add({})->zone=retrieveZone(a, {});
+      zones.add({"2", "0", "192", "in-addr", "arpa"})->zone=retrieveZone(a, {"2", "0", "192", "in-addr", "arpa"});
+      zones.add({"addzone", "com"})->zone=retrieveZone(a, {"addzone", "com"});
+      zones.add({"cdnskey-cds-test", "com"})->zone=retrieveZone(a, {"cdnskey-cds-test", "com"});
+      zones.add({"cryptokeys", "org"})->zone=retrieveZone(a, {"cryptokeys", "org"});
+      zones.add({"delegated", "dnssec-parent", "com"})->zone=retrieveZone(a, {"delegated", "dnssec-parent", "com"});
+      zones.add({"dnssec-parent", "com"})->zone=retrieveZone(a, {"dnssec-parent", "com"});
+      zones.add({"example", "com"})->zone=retrieveZone(a, {"example", "com"});
+      zones.add({"minimal", "com"})->zone=retrieveZone(a, {"minimal", "com"});
+      zones.add({"nztest", "com"})->zone=retrieveZone(a, {"nztest", "com"});
+      zones.add({"powerdnssec", "org"})->zone=retrieveZone(a, {"powerdnssec", "org"});
+      zones.add({"secure-delegated", "dnssec-parent", "com"})->zone=retrieveZone(a, {"secure-delegated", "dnssec-parent", "com"});
+      zones.add({"stest", "com"})->zone=retrieveZone(a, {"stest", "com"});
+      zones.add({"test", "com"})->zone=retrieveZone(a, {"test", "com"});
+      zones.add({"test", "dyndns"})->zone=retrieveZone(a, {"test", "dyndns"});
+      zones.add({"test", "dyndns", "orig"})->zone=retrieveZone(a, {"test", "dyndns", "orig"});
+      zones.add({"tsig", "com"})->zone=retrieveZone(a, {"tsig", "com"});
+      zones.add({"unit", "test"})->zone=retrieveZone(a, {"unit", "test"});
+      zones.add({"wtest", "com"})->zone=retrieveZone(a, {"wtest", "com"});
       break;
     }
     catch(std::exception& e) {
@@ -27,60 +45,4 @@ void loadZones(DNSNode& zones)
   zones.add({"ds9a", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"ds9a", "nl"});
   */
 
-  auto zone = zones.add({"tdns", "powerdns", "org"});
-  auto newzone = std::make_unique<DNSNode>(); 
-  
-  newzone->addRRs(SOAGen::make({"ns1", "tdns", "powerdns", "org"}, {"admin", "powerdns", "org"}, 1),
-                  NSGen::make({"ns1", "tdns", "powerdns", "org"}), 
-                  MXGen::make(25, {"server1", "tdns", "powerdns", "org"})
-                  );
-  newzone->add({"server1"})->addRRs(AGen::make("213.244.168.210"), AAAAGen::make("::1"));
-  
-  newzone->addRRs(AGen::make("1.2.3.4"));
-  newzone->addRRs(AAAAGen::make("::1"));
-  newzone->rrsets[DNSType::AAAA].ttl= 900;
-
-  newzone->addRRs(TXTGen::make("Proudly served by tdns compiled on " __DATE__ " " __TIME__),
-                  TXTGen::make("This is some more filler to make this packet exceed 512 bytes"));
-  
-  newzone->add({"www"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server1","tdns","powerdns","org"}));
-  newzone->add({"www2"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"nosuchserver1","tdns","powerdns","org"}));
-
-
-  newzone->add({"server2"})->addRRs(AGen::make("213.244.168.210"), AAAAGen::make("::1"));
-  
-  newzone->add({"*", "nl"})->rrsets[DNSType::A].add(AGen::make("5.6.7.8"));
-  newzone->add({"*", "fr"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server2", "tdns", "powerdns", "org"}));
-
-  newzone->add({"fra"})->addRRs(NSGen::make({"ns1","fra","powerdns","org"}), NSGen::make({"ns1","fra","powerdns","org"}));
-  newzone->add({"ns1"})->addRRs(AGen::make("52.56.155.186"));
-  newzone->add({"ns1", "fra"})->addRRs(AGen::make("12.13.14.15"));
-  newzone->add({"NS2", "fra"})->addRRs(AGen::make("12.13.14.16"));
-  newzone->add({"ns2", "fra"})->addRRs(AAAAGen::make("::1"));  
-
-  newzone->add({"something"})->addRRs(AAAAGen::make("::1"), AGen::make("12.13.14.15"));
-  newzone->add({"time"})->addRRs(ClockTXTGen::make("The time is %a, %d %b %Y %T %z"));
-
-  newzone->add({"ent", "was", "here"})->addRRs(TXTGen::make("plenum"));
-  newzone->add({"some.embedded.dots"})->addRRs(TXTGen::make("what do the dots look like?"));
-
-
-  const char zero[]="name-does-not-stop-here\x0-it-goes-on";
-  std::string zstring(zero, sizeof(zero)-1);
-  newzone->add({"goes-via-embedded-nul"})->addRRs(CNAMEGen::make({zstring, "tdns", "powerdns", "org"}));
-  newzone->add({"goes-via-embedded-space"})->addRRs(CNAMEGen::make({"some host", "tdns", "powerdns", "org"}));
-  newzone->add({"goes-via-embedded-dot"})->addRRs(CNAMEGen::make({"some.host", "tdns", "powerdns", "org"}));
-
-                                                  
-  newzone->add({zstring})->addRRs(TXTGen::make("this record is called name-does-not-stop-here\\000-it-goes-on"),
-                                                            AGen::make("192.0.0.1"));
-
-  newzone->add({"some host"})->addRRs(AGen::make("192.0.0.2"));
-  newzone->add({"some.host"})->addRRs(AGen::make("192.0.0.3"));
-
-  newzone->add({"enum"})->addRRs(std::make_unique<NAPTRGen>(100, 50, "s", "z3950+I2L+I2C", "", DNSName({"_z3950","_tcp","gatech", "edu"})));
-
-  newzone->add({"_foobar", "_tcp"})->addRRs(std::make_unique<SRVGen>(0, 1,9, DNSName({"old-slow-box", "example", "com"})));
-  
-  zone->zone = std::move(newzone);
 }
