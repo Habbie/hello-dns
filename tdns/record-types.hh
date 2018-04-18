@@ -103,15 +103,15 @@ struct AAAAGen : RRGen
 //! Generates a SOA Resource Record
 struct SOAGen : RRGen
 {
-  SOAGen(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800) :
-    d_mname(mname), d_rname(rname), d_serial(serial), d_minimum(minimum), d_refresh(refresh), d_retry(retry), d_expire(expire)
+  SOAGen(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800, uint32_t minimum=3600) :
+    d_mname(mname), d_rname(rname), d_serial(serial), d_refresh(refresh), d_retry(retry), d_expire(expire), d_minimum(minimum)
   {}
 
   SOAGen(DNSMessageReader& dmr);
   SOAGen(DNSStringReader dsr);
-  static std::unique_ptr<RRGen> make(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800)
+  static std::unique_ptr<RRGen> make(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800, uint32_t minimum=3600)
   {
-    return std::make_unique<SOAGen>(mname, rname, serial, minimum, refresh, retry, expire);
+    return std::make_unique<SOAGen>(mname, rname, serial, refresh, retry, expire, minimum);
   }
   
   void toMessage(DNSMessageWriter& dpw) override;
@@ -119,7 +119,7 @@ struct SOAGen : RRGen
   std::string toString() const override;
   template<typename X> void doConv(X& x);
   DNSName d_mname, d_rname;
-  uint32_t d_serial, d_minimum, d_refresh, d_retry, d_expire;
+  uint32_t d_serial, d_refresh, d_retry, d_expire, d_minimum;
 };
 
 //! Generates a SRV Resource Record
