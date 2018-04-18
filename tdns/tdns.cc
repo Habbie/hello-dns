@@ -323,6 +323,7 @@ uint16_t tcpGetLen(int sock)
 
 /*! spawned for each new TCP/IP client. In actual production this is not a good idea. */
 void tcpClientThread(ComboAddress remote, int s, const DNSNode* zones)
+try
 {
   signal(SIGPIPE, SIG_IGN);
   Socket sock(s); // this will close for us
@@ -419,7 +420,10 @@ void tcpClientThread(ComboAddress remote, int s, const DNSNode* zones)
     }
   }
 }
-
+catch(std::exception &e) {
+  cerr<<"TCP client thread spawned for "<<remote.toStringWithPort()<<" exiting: "<<e.what()<<endl;
+}
+   
 //! connects to an authoritative server, retrieves a zone, returns it as a smart pointer
 std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName& zone)
 {
