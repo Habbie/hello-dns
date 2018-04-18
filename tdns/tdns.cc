@@ -388,7 +388,7 @@ try
       response.clearRRs();
 
       // send all other records
-      node->visit([&response,&sock,&name,&type,&zone](const DNSName& nname, const DNSNode* n) {
+      node->visit([&response,&sock](const DNSName& nname, const DNSNode* n) {
           for(const auto& p : n->rrsets) {
             if(p.first == DNSType::SOA) // skip the SOA, as it indicates end of AXFR
               continue;
