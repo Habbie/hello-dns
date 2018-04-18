@@ -245,7 +245,7 @@ struct ClockTXTGen : RRGen
     return std::make_unique<ClockTXTGen>(format);
   }
   void toMessage(DNSMessageWriter& dpw) override;
-  std::string toString() const { return d_format; }
+  std::string toString() const override { return d_format; }
   DNSType getType() const override { return DNSType::TXT; }
   std::string d_format;
 };
