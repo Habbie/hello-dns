@@ -23,6 +23,29 @@ using namespace std;
     tdns is a simple authoritative nameserver that is fully faithful to the 
     DNS storage model as outlined in RFC 1034.
 
+    An introduction can be found on https://powerdns.org/hello-dns/tdns/intro.md.html
+
+    ## Object relations
+    DNSMessageReader is used to read DNS messages. A UDP DNS Packet is also a DNS message.
+    DNSMessageWriter is used to create DNS messages.
+
+    A DNS name is stored in a DNSName object and internally consists of DNSLabel's. 
+
+    DNS messages also mostly have a query name, which is a DNSName and a query type which is a DNSType. They also have a DNSClass but we don't do much with that.
+
+    To insert resource records into DNSMessageWriter, use DNSMessageWriter::putRR, to
+    read them from DNSMessageReader, use DNSMessageReader::getRR.
+
+    Resource records are stored as RRGen instances. The RRGen object is able to serialize
+    itself to/from a DNSMessageWriter or DNSMessageReader. In addition, this object has a
+    RRGen::toString method for 'human consumption' output.
+
+    ## Next steps in understanding `tdns`
+
+    The basics of tdns can best be understood by first reading tdig.cc
+
+    Details of how DNSMessageReader/DNSMessageWriter and the RRGen objects interact
+    are in record-types.hh
 */
 
 void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response);

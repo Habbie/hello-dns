@@ -13,6 +13,38 @@ class DNSMessageReader;
    Generators know about a record type's contents. 
    They also know how to inject themselves into a DNSMessageWriter, parse themselves from a DNSMessageReader 
    and how to convert themselves into a master file representation.
+
+   The "Magic" behind this is that a RRGen instance uses methods like:
+
+     - DNSMessageReader::xfrUInt16() 
+     - DNSMessageWriter::xfrUInt16() 
+     - DNSStringWriter::xfrUInt16()
+     - DNSStringReader::xfrUInt16()
+
+   To (de)serialize itself from/to DNS Messages and 'master file format strings'. 
+   Since these methods have the same name over all four classes, the same code can 
+   be used to (de)serialize to both messages and human readable strings.
+
+   All generators have 'native' constructors, which allows for example the construction
+   of an IP(v6) address from a struct sockaddr. In addition, the contents of 
+   a resource record are available natively. As an example:
+
+   ```
+   DNSMessageReader dmr(resp);
+   
+   DNSSection rrsection;
+   DNSName dn;
+   DNSType dt;
+   uint32_t ttl;
+   std::unique_ptr<RRGen> rr;
+   
+   if(dmr.getRR(rrsection, dn, dt, ttl, rr)) {
+     auto aaaa = dynamic_cast<AAAAGen*>(rr.get());
+     if(aaaa) {
+        sendto(sock, "hello", 5, aaaa->getIP(), aaaa->getIP().getSocklen(), 0);
+     }
+   }
+   ```
  */
 
 
@@ -27,11 +59,11 @@ struct AGen : RRGen
   {
     return make(ComboAddress(s));
   }
-  void toMessage(DNSMessageWriter& dpw) override; // to packet/message
-  std::string toString() const override; // master zone format
+  void toMessage(DNSMessageWriter& dpw) override; //!< to packet/message
+  std::string toString() const override; //!< to master zone format
   DNSType getType() const override { return DNSType::A; }
-
-  uint32_t d_ip; // the actual IP
+  ComboAddress getIP() const; //!< Get IP address in ready to use form
+  uint32_t d_ip; //!< the actual IP
 };
 //! Generates an AAAA (IPv6 address) record
 struct AAAAGen : RRGen
@@ -50,6 +82,8 @@ struct AAAAGen : RRGen
   std::string toString() const override;
   DNSType getType() const override { return DNSType::AAAA; }
 
+  ComboAddress getIP() const;
+  
   unsigned char d_ip[16];
 };
 

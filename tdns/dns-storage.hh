@@ -66,8 +66,9 @@ enum class RCode
 // this makes enums printable, which is nice
 SMARTENUMSTART(RCode)
 SENUM6(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused, Badvers)
-SMARTENUMEND(RCode)
+SMARTENUMEND(RCode);
 
+//! Stores the type of a DNS query or resource record
 enum class DNSType : uint16_t
 {
   A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, NAPTR=35, DS=43, RRSIG=46,
@@ -77,8 +78,9 @@ enum class DNSType : uint16_t
 SMARTENUMSTART(DNSType)
 SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, SRV, NAPTR, DS, RRSIG, NSEC)
 SENUM4(DNSType, OPT, IXFR, AXFR, ANY)
-SMARTENUMEND(DNSType)
+SMARTENUMEND(DNSType);
 
+//! Stores the class of a DNS query or resource record
 enum class DNSClass : uint16_t
 {
   IN=1, CHAOS=3

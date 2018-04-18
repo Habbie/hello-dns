@@ -8,7 +8,7 @@
 
 /*! this exploits the similarity in writing/reading DNS messages
    and outputting master file format text */
-struct StringBuilder
+struct DNSStringWriter
 {
   void xfrName(const DNSName& name)
   {
@@ -43,13 +43,19 @@ void AGen::toMessage(DNSMessageWriter& dmw)
 {
   dmw.xfrUInt32(d_ip);
 }
-std::string AGen::toString() const
+
+ComboAddress AGen::getIP() const
 {
   ComboAddress ca;
   ca.sin4.sin_family = AF_INET;
   ca.sin4.sin_addr.s_addr = ntohl(d_ip);
-  return ca.toString();
+  return ca;
 }
+std::string AGen::toString() const
+{
+  return getIP.toString();
+}
+
 
 //////////////////////////
 
@@ -75,13 +81,18 @@ void AAAAGen::toMessage(DNSMessageWriter& x)
 {
   x.xfrBlob(d_ip, 16);
 }
-std::string AAAAGen::toString() const
+
+ComboAddress AAAAGen::getIP() const
 {
   ComboAddress ca;
   memset(&ca, 0, sizeof(ca));
   ca.sin4.sin_family = AF_INET6;
   memcpy(&ca.sin6.sin6_addr.s6_addr, d_ip, 16);
-  return ca.toString();
+  return ca;
+}
+std::string AAAAGen::toString() const
+{
+  return getIP().toString();
 }
 
 ////////////////////////////////////////
@@ -98,7 +109,7 @@ void x##Gen::toMessage(DNSMessageWriter& dmw)           \
 }                                                       \
 std::string x##Gen::toString() const                    \
 {                                                       \
-  StringBuilder sb;                                     \
+  DNSStringWriter sb;                                     \
   const_cast<x##Gen*>(this)->doConv(sb);                \
   return sb.d_string;                                   \
 }                                                       \
