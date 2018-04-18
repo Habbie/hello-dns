@@ -8,17 +8,18 @@ Note: this page is part of the
 # teaching DNS
 Welcome to tdns, a 'from scratch' teaching authoritative server,
 implementing all of [basic DNS](https://powerdns.org/hello-dns/basic.md.html) in
-~~1200~~ ~~1300~~ 1400 lines of code.  Code is
+~~1400~~ ~~1500~~ 1600 lines of code.  Code is
 [here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).  To
 compile, see [here](https://powerdns.org/hello-dns/tdns/README.md.html).
 
 `tdns` is part of the '[hello-dns](https://powerdns.org/hello-dns)' effort
 to provide a good entry point into DNS.  This project was started after an
-[IETF presentation](https://blog.powerdns.com/2018/03/22/the-dns-camel-or-the-rise-in-dns-complexit/)
- in which it was discovered the DNS standards have now grown to 2500 pages,
-and we can no longer expect new entrants to the field to read all that. 
-After 30 years, DNS deserves a fresh explanation and
-[hello-dns](https://powerdns.org/hello-dns) is it.
+[IETF
+presentation](https://blog.powerdns.com/2018/03/22/the-dns-camel-or-the-rise-in-dns-complexit/)
+by Bert Hubert of PowerDNS in which it was discovered the DNS standards have
+now grown to 2500 pages, and we can no longer expect new entrants to the
+field to read all that.  After 30 years, DNS deserves a fresh explanation
+and [hello-dns](https://powerdns.org/hello-dns) is it.
 
 Even though the 'hello-dns' documents describe how basic DNS works, and how
 an authoritative server should function, nothing quite says how to do things
@@ -43,7 +44,7 @@ Non-goals are:
 
  * Performance (beyond 100kqps)
  * Implementing more features (unless very educational)
- * DNSSEC (more about which later)
+ * DNSSEC (for now)
 
 Besides being 'teachable', `tdns` could actually be useful if you need a
 4-file dependency-light library that can look up DNS things for you.
@@ -97,7 +98,7 @@ easy.  Achieving millions of queries per second does not leave the luxury of
 keeping code in an accessible or educational state.
 
 `tdns` addresses this gap by being a 1500 line long server that is well
-documented and described. Any competent programmer can read the entire
+documented and commented. Any competent programmer can read the entire
 source code a few hours and observe how things really should be done.
 
 ## That sounds like hubris
@@ -112,7 +113,7 @@ could be done better.
 In other words, where `tdns` is currently not right, we hope that with
 sufficient attention it soon will be. Bikeshed away!
 
-# How did all those features fit in ~1200 lines?
+# How did all those features fit in ~1500 lines?
 Key to a good DNS implementation is having a faithful DNS storage model,
 with the correct kind of objects in them.
 
@@ -122,21 +123,20 @@ sensitivity, setting the 'AA' bit on glue (or not) and eventually DNSSEC
 ordering problems.
 
 When storing DNS as a tree, as described in [RFC
-1034](https://tools.ietf.org/html/rfc1034), a lot of things go
-right "automatically".  When DNS Names and are a fundamental type composed
-out of DNS Labels with the correct case-insensitive equivalence and identity
-rules, lots of problems can never happen. Lots of conversion mechanics also
-does not need to be written.
+1034](https://tools.ietf.org/html/rfc1034), a lot of things go right
+"automatically".  When DNS Names are a fundamental type composed out of DNS
+Labels with the correct case-insensitive equivalence and identity rules,
+lots of problems can never happen.  Tons of conversion mechanics also does
+not need to be typed in (or forgotten in some places).
 
 The core or `tdns` therefore is the tree of nodes as intended in 1034,
 containing DNS native objects like `DNSLabel`s and `DNSName`s. These get
 escaping, case sensitivity and binary correctness right 'automatically'.
 
 ## The DNS Tree
-Of specific note is the DNS Tree as described in RFC 1034. Because DNS is
-never shown to us as a tree, and in fact is presented as a flat 'zone file',
-it is easy to ignore the tree-like nature of DNS. 
-
+Of specific note is the DNS Tree as described in RFC 1034.  Because DNS is
+never shown to us as a tree, and in fact is usually presented as a flat
+'zone file', it is easy to ignore the tree-like nature of DNS.
 
 *************************************************************************************************
 *                                                                                               *
@@ -161,7 +161,8 @@ it is easy to ignore the tree-like nature of DNS.
 [Figure [diagram]: DNS Tree containing data nodes `ns1.ord.ietf.org`, `ns2.fra.ietf.org`, `ietf.org` and `org` ] 
 
 To find nodes within the DNS tree, start matching from the top. This zone is
-called `org`, so at depth 4 we can find `ns1.ord.ietf.org`.
+called `org`, so at depth 4 we can find `ns1.ord.ietf.org`, after first
+matching nodes called `ietf`, `ord` and finally `ns1`.
 
 If this tree is embraced, it turns out that a nameserver can use the very
 same tree implementation three times:
@@ -179,8 +180,8 @@ compression. This 2018 discovery in a 1985 protocol turns out to work
 surprisingly well!
 
 ## Putting the tricky bits at a fundamental level
-DNS names look surprisingly like strings, but they very much are not. For
-starters, DNS is case insensitive in its own special way, and such rules
+DNS names look surprisingly like text strings, but they very much are not. 
+For starters, DNS is case insensitive in its own special way, and such rules
 must be obeyed for DNSSEC to ever work.
 
 Furthermore, despite appearances, DNS is 8-bit safe. This means that
@@ -193,7 +194,7 @@ binary and length limited by themselves.
 
 Code that uses "strings" for DNS may struggle to recognize (in all places!)
 that `www.PowerDNS.COM`, `www.powerdns.com`, `www.p\079werdns.com.` and
-`www.p\111werdns.com` are all equivalent, but that `www\046powercns.com` is
+`www.p\111werdns.com` are all equivalent, but that `www\046powerdns.com` is
 not.
 
 ## The inner symmetry of DNS
@@ -260,8 +261,20 @@ std::string SOAGen::toString()
 
 ```
 
-Exploiting this symmetry does not only save code, it also saves us from
-potential inconsistencies.
+Exploiting this symmetry does not only save a lot of typing, it also saves
+us from potential inconsistencies.
+
+# Next steps
+It is the hope that `tdns` is educational and will lead to a better
+understanding of DNS. `tdns` is not yet done and we anxiously await comments
+from the rest of the DNS community, as well as reimplementations in other
+languages (like Go and Rust).
+
+`tdns` is described more fully in its
+[README](https://powerdns.org/hello-dns/tdns/README.md.html).  In addition,
+the code is richly commented with Doxygen annotations, which can be seen
+[here](https://powerdns.org/hello-dns/tdns/codedocs/html/).  The code itself
+meanwhile is on [GitHub](https://github.com/ahuPowerDNS/hello-dns)
 
 
 <script>

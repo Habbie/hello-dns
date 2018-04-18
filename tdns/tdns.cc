@@ -46,6 +46,10 @@ using namespace std;
 
     Details of how DNSMessageReader/DNSMessageWriter and the RRGen objects interact
     are in record-types.hh
+
+    ## DNS Tree
+    Key to understanding tdns (or in fact, dns) is understanding the DNS Tree, which is hosted
+    by the DNSNode class, for which see dns-storage.hh
 */
 
 void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response);
