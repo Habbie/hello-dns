@@ -233,18 +233,22 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
 
   for(;;) {
     ComboAddress remote(local);
-
-    string message = SRecvfrom(*sock, 512, remote);
-    DNSMessageReader dm(message);
-    dm.getQuestion(qname, qtype);
-
-    DNSMessageWriter response(qname, qtype);
-
-    if(processQuestion(*zones, dm, remote, response)) {
-      if(response.dh.rcode)
-        cout<<"\tSending response with rcode "<<(RCode)response.dh.rcode <<endl;
-
-      SSendto(*sock, response.serialize(), remote);
+    try {
+      string message = SRecvfrom(*sock, 512, remote);
+      DNSMessageReader dm(message);
+      dm.getQuestion(qname, qtype);
+      
+      DNSMessageWriter response(qname, qtype);
+      
+      if(processQuestion(*zones, dm, remote, response)) {
+        if(response.dh.rcode)
+          cout<<"\tSending response with rcode "<<(RCode)response.dh.rcode <<endl;
+        
+        SSendto(*sock, response.serialize(), remote);
+      }
+    }
+    catch(std::exception& e) {
+      cerr<<"Query from "<<remote.toStringWithPort()<<" caused an error: "<<e.what()<<endl;
     }
   }
 }

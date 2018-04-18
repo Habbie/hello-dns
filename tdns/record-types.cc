@@ -53,7 +53,7 @@ ComboAddress AGen::getIP() const
 }
 std::string AGen::toString() const
 {
-  return getIP.toString();
+  return getIP().toString();
 }
 
 
