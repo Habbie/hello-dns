@@ -34,6 +34,64 @@ struct DNSStringWriter
   std::string d_string;
 };
 
+
+/*! this exploits the similarity in writing/reading DNS messages
+   and outputting master file format text */
+
+DNSStringReader::DNSStringReader(const std::string& str) : d_string(str), d_iter(d_string.cbegin())
+{}
+
+void DNSStringReader::skipSpaces()
+{
+  while(d_iter != d_string.end() && isspace(*d_iter))
+    d_iter++;
+  if(d_iter == d_string.end())
+    throw std::runtime_error("End of string while parsing RR");
+}
+
+void DNSStringReader::xfrName(DNSName& name)
+{
+  skipSpaces();
+  
+  auto begin = d_iter;
+  while(d_iter != d_string.end() && !isspace(*d_iter)) {
+    ++d_iter;
+  }
+  
+  std::string tmp(begin, d_iter);
+  name=makeDNSName(tmp);
+}
+void DNSStringReader::xfrUInt16(uint16_t& v)
+{
+  skipSpaces();
+  auto begin = d_iter;
+  while(d_iter != d_string.end() && !isspace(*d_iter))
+    ++d_iter;
+  v = atoi(&*begin);
+}
+void DNSStringReader::xfrUInt32(uint32_t& v)
+{
+  skipSpaces();
+  auto begin = d_iter;
+  while(d_iter != d_string.end() && !isspace(*d_iter))
+    ++d_iter;
+  v = atoi(&*begin);
+}
+// XXX SHOULD UNESCAPE
+void DNSStringReader::xfrTxt(std::string& txt)
+{
+  txt.clear();
+  skipSpaces();
+  if(*d_iter != '"')
+    throw std::runtime_error("Text segment in DNS string should start with a quote");
+  auto begin = ++d_iter;
+  while(d_iter != d_string.end() && *d_iter != '"')
+    ++d_iter;
+  if(*d_iter != '"')
+    throw std::runtime_error("Text segment in DNS string should end with a quote");
+  txt.assign(begin, d_iter);
+}
+
 AGen::AGen(DNSMessageReader& x)
 {
   x.xfrUInt32(d_ip);
@@ -100,6 +158,10 @@ std::string AAAAGen::toString() const
 
 #define BOILERPLATE(x)                                  \
 x##Gen::x##Gen(DNSMessageReader& dmr)                   \
+{                                                       \
+  doConv(dmr);                                          \
+}                                                       \
+x##Gen::x##Gen(DNSStringReader dmr)                   \
 {                                                       \
   doConv(dmr);                                          \
 }                                                       \

@@ -6,6 +6,19 @@
 
 class DNSMessageReader;
 
+struct DNSStringReader
+{
+  DNSStringReader(const std::string& str);
+  void skipSpaces();
+                                            
+  void xfrName(DNSName& name);
+  void xfrUInt16(uint16_t& v);
+  void xfrUInt32(uint32_t& v);
+  void xfrTxt(std::string& txt);
+  std::string d_string;
+  std::string::const_iterator d_iter;
+};
+
 /*! 
    @file
    @brief Defines all Resource Record Generators
@@ -95,7 +108,7 @@ struct SOAGen : RRGen
   {}
 
   SOAGen(DNSMessageReader& dmr);
-  
+  SOAGen(DNSStringReader dsr);
   static std::unique_ptr<RRGen> make(const DNSName& mname, const DNSName& rname, uint32_t serial, uint32_t minimum=3600, uint32_t refresh=10800, uint32_t retry=3600, uint32_t expire=604800)
   {
     return std::make_unique<SOAGen>(mname, rname, serial, minimum, refresh, retry, expire);
@@ -117,6 +130,7 @@ struct SRVGen : RRGen
   {}
 
   SRVGen(DNSMessageReader& dmr);
+  SRVGen(DNSStringReader dsr);
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::SRV; }
   std::string toString() const override;
@@ -137,6 +151,7 @@ struct NAPTRGen : RRGen
   {}
 
   NAPTRGen(DNSMessageReader& dmr);
+  NAPTRGen(DNSStringReader dsr);
   void toMessage(DNSMessageWriter& dpw) override;
   DNSType getType() const override { return DNSType::NAPTR; }
   std::string toString() const override;

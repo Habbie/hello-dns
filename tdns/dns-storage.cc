@@ -29,6 +29,24 @@ DNSName operator+(const DNSName& a, const DNSName& b)
   return ret;
 }
 
+//! This function is plain wrong and does unescape its input
+DNSName makeDNSName(const std::string& str)
+{
+  DNSName ret;
+  string part;
+  for(const auto& c: str) {
+    if(c=='.') {
+      ret.push_back(part);
+      part.clear();
+    }
+    else part.append(1, c);
+  }
+  if(!part.empty())
+    ret.push_back(part);
+  return ret;
+}
+
+
 DNSNode::~DNSNode() = default; 
 
 //! The big RFC 1034-compatible find function. Will perform wildcard synth if requested

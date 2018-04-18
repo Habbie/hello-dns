@@ -81,6 +81,7 @@ void loadZones(DNSNode& zones)
   newzone->add({"enum"})->addRRs(std::make_unique<NAPTRGen>(100, 50, "s", "z3950+I2L+I2C", "", DNSName({"_z3950","_tcp","gatech", "edu"})));
 
   newzone->add({"_foobar", "_tcp"})->addRRs(std::make_unique<SRVGen>(0, 1,9, DNSName({"old-slow-box", "example", "com"})));
+  newzone->add({"_foobar2", "_tcp"})->addRRs(std::make_unique<SRVGen>(DNSStringReader("0 1 9 old-slow-box.example.com")));
   
   zone->zone = std::move(newzone);
 }

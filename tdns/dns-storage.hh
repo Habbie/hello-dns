@@ -154,6 +154,7 @@ struct DNSName
 // printing, concatenation
 std::ostream & operator<<(std::ostream &os, const DNSName& d);
 DNSName operator+(const DNSName& a, const DNSName& b);
+DNSName makeDNSName(const std::string& str);
 
 class DNSMessageWriter;
 
