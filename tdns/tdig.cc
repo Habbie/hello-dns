@@ -27,7 +27,7 @@ try
   
   DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
-  ComboAddress server(argv[3]);
+  ComboAddress server(argv[3], 53);
 
   DNSMessageWriter dmw(dn, dt);
           
