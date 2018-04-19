@@ -93,11 +93,12 @@ bool DNSMessageReader::getRR(DNSSection& section, DNSName& name, DNSType& type, 
   /* uint16_t lclass = */ getUInt16(); // class
   xfrUInt32(ttl);
   auto len = getUInt16();
-
-  // this should care about RP, AFSDB, NAPTR, and SRV too (RFC3597)
+  d_endofrecord = payloadpos + len;
+  // this should care about RP, AFSDB too (RFC3597).. if anyone cares
 #define CONVERT(x) if(type == DNSType::x) { content = std::make_unique<x##Gen>(*this);} else
   CONVERT(A) CONVERT(AAAA) CONVERT(NS) CONVERT(SOA) CONVERT(MX) CONVERT(CNAME)
   CONVERT(NAPTR) CONVERT(SRV)
+  CONVERT(TXT)
   CONVERT(PTR) 
   {
     content = std::make_unique<UnknownGen>(type, getBlob(len));

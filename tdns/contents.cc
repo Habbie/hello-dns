@@ -40,8 +40,8 @@ void loadZones(DNSNode& zones)
   newzone->addRRs(AAAAGen::make("::1"));
   newzone->rrsets[DNSType::AAAA].ttl= 900;
 
-  newzone->addRRs(TXTGen::make("Proudly served by tdns compiled on " __DATE__ " " __TIME__),
-                  TXTGen::make("This is some more filler to make this packet exceed 512 bytes"));
+  newzone->addRRs(TXTGen::make({"Proudly served by tdns compiled on " __DATE__ " " __TIME__}),
+                  TXTGen::make({"This is some more filler to make this packet exceed 512 bytes"}));
   
   newzone->add({"www"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"server1","tdns","powerdns","org"}));
   newzone->add({"www2"})->rrsets[DNSType::CNAME].add(CNAMEGen::make({"nosuchserver1","tdns","powerdns","org"}));
@@ -61,10 +61,12 @@ void loadZones(DNSNode& zones)
   newzone->add({"something"})->addRRs(AAAAGen::make("::1"), AGen::make("12.13.14.15"));
   newzone->add({"time"})->addRRs(ClockTXTGen::make("The time is %a, %d %b %Y %T %z"));
 
-  newzone->add({"ent", "was", "here"})->addRRs(TXTGen::make("plenum"));
-  newzone->add({"some.embedded.dots"})->addRRs(TXTGen::make("what do the dots look like?"));
+  newzone->add({"ent", "was", "here"})->addRRs(TXTGen::make({"plenum"}));
+  newzone->add({"some.embedded.dots"})->addRRs(TXTGen::make({"what do the dots look like?"}));
 
+  newzone->add({"multi"})->addRRs(TXTGen::make({"part one", "part two"}));
 
+  
   const char zero[]="name-does-not-stop-here\x0-it-goes-on";
   std::string zstring(zero, sizeof(zero)-1);
   newzone->add({"goes-via-embedded-nul"})->addRRs(CNAMEGen::make({zstring, "tdns", "powerdns", "org"}));
@@ -72,7 +74,7 @@ void loadZones(DNSNode& zones)
   newzone->add({"goes-via-embedded-dot"})->addRRs(CNAMEGen::make({"some.host", "tdns", "powerdns", "org"}));
 
                                                   
-  newzone->add({zstring})->addRRs(TXTGen::make("this record is called name-does-not-stop-here\\000-it-goes-on"),
+  newzone->add({zstring})->addRRs(TXTGen::make({"this record is called name-does-not-stop-here\\000-it-goes-on"}),
                                                             AGen::make("192.0.0.1"));
 
   newzone->add({"some host"})->addRRs(AGen::make("192.0.0.2"));

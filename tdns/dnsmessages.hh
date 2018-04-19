@@ -18,6 +18,9 @@ public:
   struct dnsheader dh=dnsheader{}; //!< the DNS header
   std::vector<uint8_t> payload;    //!< The payload
   uint16_t payloadpos{0};          //!< Current position of processing
+  uint16_t d_endofrecord;
+  //! are we at the end of a record?
+  bool eor() const { return payloadpos == d_endofrecord; } 
   
   //! Copies the qname and type to you
   void getQuestion(DNSName& name, DNSType& type) const;
@@ -147,7 +150,7 @@ public:
     payloadpos += sizeof(val);
   }
 
-  void xfrTxt(std::string& blob)
+  void xfrTxt(const std::string& blob)
   {
     if(blob.size() > 255)
       throw std::runtime_error("Overly large TXT segment");

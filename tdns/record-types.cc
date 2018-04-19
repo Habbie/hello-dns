@@ -114,6 +114,10 @@ std::string AGen::toString() const
   return getIP().toString();
 }
 
+std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
+{
+  return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
+}
 
 //////////////////////////
 
@@ -267,15 +271,29 @@ std::string MXGen::toString() const
 
 /////////////////////////////
 
+TXTGen::TXTGen(DNSMessageReader& dmr) 
+{
+  while(!dmr.eor()) {
+    std::string txt;
+    dmr.xfrTxt(txt);
+    d_txts.push_back(txt);
+  }
+}
+
 void TXTGen::toMessage(DNSMessageWriter& dmw) 
 {
-  // XXX should autosplit or throw
-  dmw.xfrTxt(d_txt);
+  for(const auto& txt : d_txts)
+    dmw.xfrTxt(txt);
 }
 
 std::string TXTGen::toString() const
 {
-  return "\""+ d_txt + "\""; // XXX should escape
+  std::string ret;
+  for(const auto& txt : d_txts) {
+    if(!ret.empty()) ret.append(1, ' ');
+    ret+= "\""+ txt + "\""; // XXX should escape
+  }
+  return ret;
 }
 
 /////////////////////////////
@@ -300,10 +318,6 @@ std::string UnknownGen::toString() const
   return ret.str();
 }
 
-std::unique_ptr<RRGen> AGen::make(const ComboAddress& ca)
-{
-  return std::make_unique<AGen>(ntohl(ca.sin4.sin_addr.s_addr));
-}
 
 
 void ClockTXTGen::toMessage(DNSMessageWriter& dmw) 
@@ -317,6 +331,6 @@ void ClockTXTGen::toMessage(DNSMessageWriter& dmw)
   if(strftime(buffer, sizeof(buffer), d_format.c_str(), &tm))
     txt=buffer;
 
-  TXTGen gen(txt);
+  TXTGen gen({txt});
   gen.toMessage(dmw);
 }

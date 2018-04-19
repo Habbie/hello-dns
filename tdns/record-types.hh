@@ -229,15 +229,16 @@ struct MXGen : RRGen
 //! Generates an TXT Resource Record
 struct TXTGen : RRGen
 {
-  TXTGen(const std::string& txt) : d_txt(txt) {}
-  static std::unique_ptr<RRGen> make(const std::string& txt)
+  TXTGen(const std::vector<std::string>& txts) : d_txts(txts) {}
+  TXTGen(DNSMessageReader& dr);
+  static std::unique_ptr<RRGen> make(const std::vector<std::string>& txts)
   {
-    return std::make_unique<TXTGen>(txt);
+    return std::make_unique<TXTGen>(txts);
   }
   void toMessage(DNSMessageWriter& dpw) override;
   std::string toString() const override;
   DNSType getType() const override { return DNSType::TXT; }
-  std::string d_txt;
+  std::vector<std::string> d_txts;
 };
 
 //! This implements 'unknown record types'
