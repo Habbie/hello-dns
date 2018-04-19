@@ -11,7 +11,7 @@ using namespace std;
 //! Called by tdns.cc main() to load user content
 void loadZones(DNSNode& zones)
 {
-  auto addresses=resolveName("f.root-servers.net"); // this retrieves IPv4 and IPv6
+  auto addresses=resolveName("k.root-servers.net"); // this retrieves IPv4 and IPv6
   for(auto& a: addresses) {
     try {
       a.sin4.sin_port = htons(53);
@@ -19,7 +19,7 @@ void loadZones(DNSNode& zones)
       break;
     }
     catch(std::exception& e) {
-      cout<<"Unable to retrieve root zone from f-root server "+a.toStringWithPort()<<": " << e.what() << endl;
+      cout<<"Unable to retrieve root zone from k-root server "+a.toStringWithPort()<<": " << e.what() << endl;
     }
   }
   /*
