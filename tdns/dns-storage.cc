@@ -29,7 +29,7 @@ DNSName operator+(const DNSName& a, const DNSName& b)
   return ret;
 }
 
-//! This function is plain wrong and does unescape its input
+//! This function is plain wrong and does unescape its input XXX
 DNSName makeDNSName(const std::string& str)
 {
   DNSName ret;

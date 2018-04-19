@@ -288,12 +288,10 @@ void TXTGen::toMessage(DNSMessageWriter& dmw)
 
 std::string TXTGen::toString() const
 {
-  std::string ret;
-  for(const auto& txt : d_txts) {
-    if(!ret.empty()) ret.append(1, ' ');
-    ret+= "\""+ txt + "\""; // XXX should escape
-  }
-  return ret;
+  DNSStringWriter dsw;
+  for(const auto& txt : d_txts) 
+    dsw.xfrTxt(txt);
+  return dsw.d_string;
 }
 
 /////////////////////////////
