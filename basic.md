@@ -544,7 +544,7 @@ $ORIGIN ietf.org
 ```
 
 This collides with the SOA and NS records, which are then also redirected
-and not found.  Frequently doing this 'apex CNAME' appears to work, but it
+and not found. Often, using this 'apex CNAME' may seem to work, but it
 really doesn't.
 
 In hindsight, the CNAME should have been 'typed' to apply only to specific
