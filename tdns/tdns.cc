@@ -86,7 +86,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
     response.dh.qr = 1; response.dh.opcode = dm.dh.opcode;
 
-    uint16_t newsize; bool doBit;
+    uint16_t newsize; bool doBit{false};
 
     if(dm.getEDNS(&newsize, &doBit)) {
       cout<<"\tHave EDNS, buffer size = "<<newsize<<", DO bit = "<<doBit<<endl;
@@ -124,9 +124,11 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     response.dh.aa = 1; 
     
     auto bestzone = fnd->zone.get(); // this loads a pointer to the zone contents
+
+    bool mustDoDNSSEC= doBit && !bestzone->rrsets[DNSType::SOA].signatures.empty();
     
-    DNSName searchname(qname), lastnode, zonecutname;
-    const DNSNode* passedZonecut=0;
+    DNSName searchname(qname), lastnode;
+    const DNSNode* passedZonecut=0, *passedWcard=0;
     int CNAMELoopCount = 0;
     
   loopCNAME:;
@@ -134,35 +136,75 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
        note that this is the same 'find' we used to find the best zone, but we did not
        want any wildcard procssing there */
     
-    auto node = bestzone->find(searchname, lastnode, true, &passedZonecut, &zonecutname);
+    auto node = bestzone->find(searchname, lastnode, true, &passedZonecut, &passedWcard);
     if(passedZonecut) {
       response.dh.aa = false;
-      cout<<"\tThis is a delegation, zonecutname: '"<<zonecutname<<"'"<<endl;
+      cout<<"\tThis is a delegation, zonecutname: '"<<passedZonecut->getName()<<"'"<<endl;
+      vector<DNSName> toresolve;
 
       auto iter = passedZonecut->rrsets.find(DNSType::NS);  // is there an NS record here? should be!
       if(iter != passedZonecut->rrsets.end()) {
         const auto& rrset = iter->second;
 
-        vector<DNSName> toresolve;
         for(const auto& rr : rrset.contents) {
           /* add the NS records to the authority section. Note that for this we have to make
              the name absolute again: zonecutname + zonename */
-          response.putRR(DNSSection::Authority, zonecutname+zonename, DNSType::NS, rrset.ttl, rr);
+          response.putRR(DNSSection::Authority, passedZonecut->getName()+zonename, rrset.ttl, rr);
           // and add for additional processing
           toresolve.push_back(dynamic_cast<NSGen*>(rr.get())->d_name);
         }
-        addAdditional(bestzone, zonename, toresolve, response);
       }
+      if(mustDoDNSSEC) {
+        if(iter = passedZonecut->rrsets.find(DNSType::DS), iter != passedZonecut->rrsets.end()) {
+          cout<<"\tDNSSEC OK query delegation, found a DS at "<<(passedZonecut->getName() + zonename)<<endl;
+          const auto& rrset = iter->second;
+          response.putRR(DNSSection::Authority, passedZonecut->getName() + zonename, rrset.ttl, rrset.contents[0]);
+          cout<<"\tAdding signatures for DS (have "<<rrset.signatures.size()<<")"<<endl;
+          for(const auto& sig : rrset.signatures) {
+            response.putRR(DNSSection::Authority, passedZonecut->getName()+zonename, rrset.ttl, sig);
+
+          }
+        }
+      }
+      addAdditional(bestzone, zonename, toresolve, response);
     }
     else if(!searchname.empty()) { // we had parts of the qname that did not match
-      cout<<"\tThis is an NXDOMAIN situation"<<endl;
-      if(!CNAMELoopCount) // RFC 1034, 4.3.2, step 3.c
-        response.dh.rcode = (int)RCode::Nxdomain;
+      cout<<"\tThis is an NXDOMAIN situation, unmatched parts: "<<searchname<<", lastnode: "<<lastnode<<endl;
 
       const auto& rrset = bestzone->rrsets[DNSType::SOA]; // fetch the SOA record to indicate NXDOMAIN ttl
       auto ttl = min(rrset.ttl, dynamic_cast<SOAGen*>(rrset.contents[0].get())->d_minimum); // 2308 3
 
-      response.putRR(DNSSection::Authority, zonename, DNSType::SOA, ttl, rrset.contents[0]);
+      response.putRR(DNSSection::Authority, zonename, ttl, rrset.contents[0]);
+      
+      if(mustDoDNSSEC) { // should do DNSSEC
+        for(const auto& sig : rrset.signatures) {
+          response.putRR(DNSSection::Authority, passedZonecut->getName()+zonename, rrset.ttl, sig);
+        }
+        
+        cout<<"\tAt the last node, we have "<< node->children.size()<< " children\n";
+        cout<<"\tLast node left "<<qname.back()<<endl;
+        
+        auto prev = node->children.lower_bound(qname.back())->prev();
+        for(;;) {
+          if(!prev) {
+            cout<<"\tNSEC should maybe loop? there is no previous???"<<endl;
+          }
+          cout<<"\tNSEC should start at "<<prev->getName()<<endl;
+          if(!prev->rrsets.count(DNSType::NSEC)) {
+            cout<<"\tCould not find NSEC record at "<<prev->getName()<<", it is an ENT, going back further"<<endl;
+          }
+          break;
+        }
+        const auto& nsecrr = prev->rrsets.find(DNSType::NSEC);
+        cout<<"\tAdding NSEC & signatures (have "<<nsecrr->second.signatures.size()<<")"<<endl;
+        response.putRR(DNSSection::Authority, prev->getName()+zonename, nsecrr->second.ttl, nsecrr->second.contents[0]);
+        for(const auto& sig : nsecrr->second.signatures) {
+          response.putRR(DNSSection::Authority, prev->getName()+zonename, nsecrr->second.ttl, sig);
+        }
+      }
+      if(!CNAMELoopCount) // RFC 1034, 4.3.2, step 3.c
+        response.dh.rcode = (int)RCode::Nxdomain;
+
     }
     else {
       cout<<"\tFound node in zone '"<<zonename<<"' for lhs '"<<qname<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
@@ -172,9 +214,15 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       vector<DNSName> additional;
       // first we always check for a CNAME, which should be the only RRType at a node if present
       if(iter = node->rrsets.find(DNSType::CNAME), iter != node->rrsets.end()) {
-        cout<<"\tNo CNAME"<<endl;
+        cout<<"\tCNAME"<<endl;
         const auto& rrset = iter->second;
-        response.putRR(DNSSection::Answer, lastnode+zonename, DNSType::CNAME, rrset.ttl, rrset.contents[0]);
+        response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, rrset.contents[0]);
+        if(mustDoDNSSEC) {
+          for(const auto& sig : rrset.signatures) {
+            response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, sig);
+          }
+        }
+
         DNSName target=dynamic_cast<CNAMEGen*>(rrset.contents[0].get())->d_name;
 
         // we'll only follow in-zone CNAMEs, which is not quite per-RFC, but a good idea
@@ -183,12 +231,13 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
           searchname = target; 
           if(qtype != DNSType::CNAME && CNAMELoopCount++ < 10) {  // do not loop if they *wanted* the CNAME
             lastnode.clear();
-            zonecutname.clear();
             goto loopCNAME;
           }
         }
       }  // we have a node, and it might even have RRSets we want
       else if(iter = node->rrsets.find(qtype), iter != node->rrsets.end() || (!node->rrsets.empty() && qtype==DNSType::ANY)) {
+        if(passedWcard)
+          cout<<"\tWe had a wildcard synthesised match. Name of wildcard: "<<passedWcard->getName()<<endl;
         auto range = make_pair(iter, iter);
         
         if(qtype == DNSType::ANY) // if ANY, loop over all types
@@ -199,9 +248,27 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
           const auto& rrset = i2->second;
           for(const auto& rr : rrset.contents) {
             cout<<"\tAdding a " << i2->first <<" RR\n";
-            response.putRR(DNSSection::Answer, lastnode+zonename, i2->first, rrset.ttl, rr);
+            response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, rr);
             if(i2->first == DNSType::MX)
               additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
+          }
+          if(mustDoDNSSEC) {
+            cout<<"\tAdding signatures for "<<i2->first<<" (have "<<rrset.signatures.size()<<")"<<endl;
+            for(const auto& sig : rrset.signatures) {
+              response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, sig);
+            }
+            
+            if(passedWcard) {
+              cout<<"\tAdding the wildcard NSEC at "<<passedWcard->getName()<<endl;
+              auto nseciter = passedWcard->rrsets.find(DNSType::NSEC);
+              if(nseciter != passedWcard->rrsets.end()) {
+                response.putRR(DNSSection::Authority, passedWcard->getName()+zonename, nseciter->second.ttl, nseciter->second.contents[0]);
+
+                for(const auto& sig : nseciter->second.signatures) {
+                  response.putRR(DNSSection::Authority, passedWcard->getName()+zonename, nseciter->second.ttl, sig);
+                }
+              }
+            }
           }
         }
       }
@@ -210,7 +277,23 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         const auto& rrset = bestzone->rrsets[DNSType::SOA];
         auto ttl = min(rrset.ttl, dynamic_cast<SOAGen*>(rrset.contents[0].get())->d_minimum); // 2308 3
 
-        response.putRR(DNSSection::Authority, zonename, DNSType::SOA, ttl, rrset.contents[0]);
+        response.putRR(DNSSection::Authority, zonename, ttl, rrset.contents[0]);
+        if(mustDoDNSSEC) {
+          cout<<"\tAdding signatures for SOA (have "<<rrset.signatures.size()<<")"<<endl;
+          for(const auto& sig : rrset.signatures) {
+            response.putRR(DNSSection::Authority, zonename, rrset.ttl, sig);
+          }
+        
+          if(node->rrsets.count(DNSType::NSEC)) {
+            const auto& nsecrr = *node->rrsets.find(DNSType::NSEC);
+            cout<<"\tAdding NSEC & signatures (have "<<nsecrr.second.signatures.size()<<")"<<endl;
+                        
+            response.putRR(DNSSection::Authority, node->getName()+zonename, rrset.ttl, nsecrr.second.contents[0]);
+            for(const auto& sig : nsecrr.second.signatures) {
+              response.putRR(DNSSection::Authority, node->getName()+zonename, rrset.ttl, sig);
+            }
+          }
+        }
       }
       addAdditional(bestzone, zonename, additional, response);
     }
@@ -286,7 +369,7 @@ try
       if(iter2 != addnode->rrsets.end()) {
         const auto& rrset = iter2->second;
         for(const auto& rr : rrset.contents) {
-          response.putRR(DNSSection::Additional, wuh+zone, type, rrset.ttl, rr);
+          response.putRR(DNSSection::Additional, wuh+zone, rrset.ttl, rr);
         }
       }
     }
@@ -378,24 +461,27 @@ try
         writeTCPMessage(sock, response);
         continue;
       }
-
+      cout<<"Answering from zone "<<zone<<endl;
       auto node = fnd->zone.get();
 
       // send SOA, which is how an AXFR must start
-      response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
+      response.putRR(DNSSection::Answer, zone, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
 
       writeTCPMessage(sock, response);
       response.clearRRs();
 
       // send all other records
-      node->visit([&response,&sock](const DNSName& nname, const DNSNode* n) {
-          for(const auto& p : n->rrsets) {
-            if(p.first == DNSType::SOA) // skip the SOA, as it indicates end of AXFR
+      const DNSNode* n=node;
+      while(n) {
+        for(const auto& p : n->rrsets) {
+          for(const auto part : { &p.second.contents, &p.second.signatures} ) {
+            if(p.first == DNSType::SOA && part == &p.second.contents) // skip the SOA, as it indicates end of AXFR
               continue;
-            for(const auto& rr : p.second.contents) {
+        
+            for(const auto& rr : *part) {
             retry:
               try {
-                response.putRR(DNSSection::Answer, nname, p.first, p.second.ttl, rr);
+                response.putRR(DNSSection::Answer, n->getName()+zone, p.second.ttl, rr);
               }
               catch(std::out_of_range& e) { // exceeded packet size 
                 writeTCPMessage(sock, response);
@@ -404,13 +490,15 @@ try
               }
             }
           }
-        }, zone);
+        }
+        n=n->next();
+      }
 
       writeTCPMessage(sock, response);
       response.clearRRs();
 
       // send SOA again
-      response.putRR(DNSSection::Answer, zone, DNSType::SOA, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
+      response.putRR(DNSSection::Answer, zone, node->rrsets[DNSType::SOA].ttl, node->rrsets[DNSType::SOA].contents[0]);
 
       writeTCPMessage(sock, response);
       return;
@@ -450,7 +538,7 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
     DNSMessageReader dmr(message);
 
     if(dmr.dh.rcode != (int)RCode::Noerror) {
-      cout<<"Got error "<<dmr.dh.rcode<<" from auth "<<remote.toStringWithPort()<< " when attempting to retrieve "<<zone<<endl;
+      cout<<"Got error "<<(RCode)dmr.dh.rcode<<" from auth "<<remote.toStringWithPort()<< " when attempting to retrieve "<<zone<<endl;
       return std::unique_ptr<DNSNode>();
     }
     
@@ -468,7 +556,8 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
         goto done;
 
       ret->add(rrname)->addRRs(std::move(rr));
-      ret->add(rrname)->rrsets[rrtype].ttl = ttl;
+      if(rrtype != DNSType::RRSIG)
+        ret->add(rrname)->rrsets[rrtype].ttl = ttl;
     }
   }
  done:

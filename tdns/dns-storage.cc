@@ -1,4 +1,5 @@
 #include "dns-storage.hh"
+#include "record-types.hh"
 #include <iomanip>
 using namespace std;
 
@@ -49,14 +50,11 @@ DNSName makeDNSName(const std::string& str)
 
 DNSNode::~DNSNode() = default; 
 
-//! The big RFC 1034-compatible find function. Will perform wildcard synth if requested
-const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const DNSNode** passedZonecut, DNSName* zonecutname) const
+//! The big RFC 1034-compatible find function. Will perform wildcard synth if requested & let you know about it
+const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const DNSNode** passedZonecut, const DNSNode** passedwcard) const
 {
   if(!last.empty() && rrsets.count(DNSType::NS)) {
-    if(passedZonecut)
-      *passedZonecut=this;
-    if(zonecutname)
-      *zonecutname=last;
+    if(passedZonecut)  *passedZonecut=this;
   }
 
   if(name.empty()) {
@@ -68,12 +66,13 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const 
     if(!wildcard)
       return this;
 
-    iter = children.find("*");
+    iter = children.find(DNSLabel("*"));
     if(iter == children.end()) { // also no wildcard
       return this;
     }
-    else {
-      //  Had wildcard match, picking that, matching all labels
+    else {  //  Had wildcard match, picking that, matching all labels
+      if(passedwcard) *passedwcard = &*iter;
+      
       while(name.size() > 1) {
         last.push_front(name.back());
         name.pop_back();
@@ -83,7 +82,7 @@ const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const 
 
   last.push_front(name.back()); // this grows the part that we matched
   name.pop_back();              // and removes same parts from name
-  return iter->second.find(name, last, wildcard, passedZonecut, zonecutname);
+  return iter->find(name, last, wildcard, passedZonecut, passedwcard);
 }
 
 //! Idempotent way of creating/accessing the DNSName in a tree
@@ -92,24 +91,76 @@ DNSNode* DNSNode::add(DNSName name)
   if(name.empty()) return this;
   auto back = name.back();
   name.pop_back();
-  return children[back].add(name); // will make child node if needed
+  children.emplace(back, this);
+  return const_cast<DNSNode&>(*children.find(back)).add(name); // sorry
 }
 
-//! Used to travel the tree, 'visitor' gets called on all nodes
-void DNSNode::visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const
+const DNSNode* DNSNode::next() const
 {
-  visitor(name, this);
-  for(const auto& c : children)
-    c.second.visit(visitor, DNSName{c.first}+name);
+  if(children.size()) {
+    //    cout<<"Descending to leftmost child"<<endl;
+    return &*children.begin();
+  }
+  else if(!d_parent) {
+    //    cout<<"We hit the end"<<endl;
+    return 0;
+  }
+  else {
+    // need to go back up
+    auto us = this; 
+    while(us->d_parent) {
+//      cout<<"Looking for node "<<us->d_name<<" at parent"<<endl;
+      auto iter=us->d_parent->children.find(*us);
+      if(iter == us->d_parent->children.cend()) {
+        //        cout<<"Ehm, parent doesn't know about us?"<<endl;
+        return 0;
+      }
+      ++iter;
+      if(iter != us->d_parent->children.cend()) {
+        //        cout<<"Found that at parent node, returning the one right to it"<<endl;
+        return &*iter;
+      }
+      else {
+        //        cout<<"That was the rightmost node already at parent, need to go a level up"<<endl;
+        us = us->d_parent;
+      }
+    }
+  }
+  return 0;
+}
+
+
+const DNSNode* DNSNode::prev() const
+{
+  auto us = this; 
+  while(us->d_parent) {
+    //    cout<<"Looking for node "<<us->d_name<<" at parent"<<endl;
+    auto iter=us->d_parent->children.find(*us);
+    if(iter != us->d_parent->children.cbegin()) {
+      //      cout<<"Found that at parent node, returning the one left it"<<endl;
+      --iter;
+      return &*iter;
+    }
+    else {
+      //      cout<<"That was the leftmost node already at parent, need to go a level up"<<endl;
+      us = us->d_parent;
+    }
+  }
+  return 0;
 }
 
 void DNSNode::addRRs(std::unique_ptr<RRGen>&&a)
 {
-  if(a->getType() == DNSType::CNAME && rrsets.size())
+  if(auto rrsig = dynamic_cast<RRSIGGen*>(a.get())) {
+    rrsets[rrsig->d_type].add(std::move(a));
+  }
+  else if(a->getType() == DNSType::CNAME && std::count_if(rrsets.begin(), rrsets.end(), [](const auto& a) { return a.first != DNSType::NSEC; })) {
     throw std::runtime_error("Can't add CNAME RR to a node that already has RRs present");
-  else if(rrsets.count(DNSType::CNAME))
-    throw std::runtime_error("Can't add an RR to a node that already has a CNAME");
-  rrsets[a->getType()].add(std::move(a));
+  }
+  else if(rrsets.count(DNSType::CNAME) && a->getType() != DNSType::NSEC)
+    throw std::runtime_error("Can't add non-NSEC RR to a node that already has a CNAME");
+  else
+    rrsets[a->getType()].add(std::move(a));
 }
 
 // Emit an escaped DNSLabel in 'master file' format

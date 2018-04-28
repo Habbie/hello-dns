@@ -98,7 +98,7 @@ bool DNSMessageReader::getRR(DNSSection& section, DNSName& name, DNSType& type, 
 #define CONVERT(x) if(type == DNSType::x) { content = std::make_unique<x##Gen>(*this);} else
   CONVERT(A) CONVERT(AAAA) CONVERT(NS) CONVERT(SOA) CONVERT(MX) CONVERT(CNAME)
   CONVERT(NAPTR) CONVERT(SRV)
-  CONVERT(TXT)
+  CONVERT(TXT) CONVERT(RRSIG)
   CONVERT(PTR) 
   {
     content = std::make_unique<UnknownGen>(type, getBlob(len));
@@ -168,12 +168,12 @@ static void nboInc(uint16_t& counter) // network byte order inc
   counter = htons(ntohs(counter) + 1);  
 }
 
-void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& content)
+void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, uint32_t ttl, const std::unique_ptr<RRGen>& content)
 {
   auto cursize = payloadpos;
   try {
     xfrName(name);
-    xfrUInt16((int)type); xfrUInt16(1);
+    xfrUInt16((int)content->getType()); xfrUInt16(1);
     xfrUInt32(ttl);
     auto pos = xfrUInt16(0); // placeholder
     content->toMessage(*this);

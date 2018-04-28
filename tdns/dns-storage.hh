@@ -1,6 +1,7 @@
 #pragma once
 #include <strings.h>
 #include <string>
+#include <set>
 #include <map>
 #include <vector>
 #include <deque>
@@ -60,24 +61,24 @@ static_assert(sizeof(dnsheader) == 12, "dnsheader size must be 12");
 // enums
 enum class RCode 
 {
-  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5, Badvers=16
+  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5, Notauth = 9, Badvers=16
 };
 
 // this makes enums printable, which is nice
 SMARTENUMSTART(RCode)
-SENUM6(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused, Badvers)
+SENUM7(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused, Notauth, Badvers)
 SMARTENUMEND(RCode);
 
 //! Stores the type of a DNS query or resource record
 enum class DNSType : uint16_t
 {
   A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, NAPTR=35, DS=43, RRSIG=46,
-  NSEC=47, OPT=41, IXFR = 251, AXFR = 252, ANY = 255
+  NSEC=47, DNSKEY=48, OPT=41, IXFR = 251, AXFR = 252, ANY = 255
 };
 
 SMARTENUMSTART(DNSType)
 SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, SRV, NAPTR, DS, RRSIG, NSEC)
-SENUM4(DNSType, OPT, IXFR, AXFR, ANY)
+SENUM5(DNSType, DNSKEY, OPT, IXFR, AXFR, ANY)
 SMARTENUMEND(DNSType);
 
 //! Stores the class of a DNS query or resource record
@@ -112,6 +113,8 @@ public:
     return !(*this < rhs) && !(rhs<*this);
   }
   auto size() const { return d_s.size(); }
+  auto empty() const { return d_s.empty(); }
+  
   std::string d_s;
 private:
   static bool charcomp(char a, char b)
@@ -148,6 +151,7 @@ struct DNSName
   {
     return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end())==0;
   }
+
   std::deque<DNSLabel> d_name;
 };
 
@@ -172,9 +176,13 @@ struct RRGen
 struct RRSet
 {
   std::vector<std::unique_ptr<RRGen>> contents;
+  std::vector<std::unique_ptr<RRGen>> signatures;
   void add(std::unique_ptr<RRGen>&& rr)
   {
-    contents.emplace_back(std::move(rr));
+    if(rr->getType() != DNSType::RRSIG) 
+      contents.emplace_back(std::move(rr));
+    else 
+      signatures.emplace_back(std::move(rr));
   }
   uint32_t ttl{3600};
 };
@@ -182,13 +190,31 @@ struct RRSet
 //! A node in the DNS tree 
 struct DNSNode
 {
+  DNSLabel d_name;
+  DNSNode* d_parent{0};
+  DNSNode(){}
+  DNSNode(const DNSLabel& lab, DNSNode* parent) : d_name(lab), d_parent(parent) {}
   ~DNSNode();
   //! This is the key function that finds names, returns where it found them and if any zonecuts were passsed
-  const DNSNode* find(DNSName& name, DNSName& last, bool wildcards=false, const DNSNode** passedZonecut=0, DNSName* zonecutname=0) const;
+  const DNSNode* find(DNSName& name, DNSName& last, bool wildcards=false, const DNSNode** passedZonecut=0, const DNSNode** passedWcard=0) const;
 
   //! This is an idempotent way to add a node to a DNS tree
   DNSNode* add(DNSName name);
   
+  const DNSNode* next() const;
+  const DNSNode* prev() const;
+  DNSName getName() const
+  {
+    DNSName ret;
+    auto us = this;
+    
+    while(us) {
+      if(!us->d_name.empty())
+        ret.push_back(us->d_name);
+      us = us->d_parent;
+    }
+    return ret;
+  }
   //! add one RRGen to this node  
   void addRRs(std::unique_ptr<RRGen>&&a);
   //! add multiple RRGen to this node  
@@ -198,12 +224,27 @@ struct DNSNode
     addRRs(std::move(a));
     addRRs(std::forward<Types>(args)...);
   }
-  //! Walk the tree and visit each node
-  void visit(std::function<void(const DNSName& name, const DNSNode*)> visitor, DNSName name) const;
 
+  struct DNSNodeCmp
+  {
+    bool operator()(const DNSNode& a, const DNSNode& b) const
+    {
+      return a.d_name < b.d_name;
+    }
+    bool operator()(const DNSNode& a, const DNSLabel& b) const
+    {
+      return a.d_name < b;
+    }
+    bool operator()(const DNSLabel& a, const DNSNode& b) const
+    {
+      return a < b.d_name;
+    }
+    using is_transparent = void;
+  };
+  
   //! children, found by DNSLabel
-  std::map<DNSLabel, DNSNode> children;
-
+  std::set<DNSNode, DNSNodeCmp> children;
+  
   // !the RRSets, grouped by type
   std::map<DNSType, RRSet > rrsets;
   std::unique_ptr<DNSNode> zone; //!< if this is set, this node is a zone

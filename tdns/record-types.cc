@@ -15,6 +15,18 @@ struct DNSStringWriter
     if(!d_string.empty()) d_string.append(1, ' ');
     d_string += name.toString();
   }
+  void xfrUInt8(uint8_t v)
+  {
+    if(!d_string.empty()) d_string.append(1, ' ');
+    d_string += std::to_string((unsigned int)v);
+  }
+
+  void xfrType(DNSType type)
+  {
+    if(!d_string.empty()) d_string.append(1, ' ');
+    d_string += toString(type);
+  }
+  
   void xfrUInt16(uint16_t v)
   {
     if(!d_string.empty()) d_string.append(1, ' ');
@@ -61,6 +73,30 @@ void DNSStringReader::xfrName(DNSName& name)
   std::string tmp(begin, d_iter);
   name=makeDNSName(tmp);
 }
+
+void DNSStringReader::xfrType(DNSType& name)
+{
+  skipSpaces();
+  
+  auto begin = d_iter;
+  while(d_iter != d_string.end() && !isspace(*d_iter)) {
+    ++d_iter;
+  }
+  
+  std::string tmp(begin, d_iter);
+  name=makeDNSType(tmp.c_str());
+}
+
+
+void DNSStringReader::xfrUInt8(uint8_t& v)
+{
+  skipSpaces();
+  auto begin = d_iter;
+  while(d_iter != d_string.end() && !isspace(*d_iter))
+    ++d_iter;
+  v = atoi(&*begin);
+}
+
 void DNSStringReader::xfrUInt16(uint16_t& v)
 {
   skipSpaces();
@@ -332,3 +368,39 @@ void ClockTXTGen::toMessage(DNSMessageWriter& dmw)
   TXTGen gen({txt});
   gen.toMessage(dmw);
 }
+
+
+///////////////////////////////
+template<typename X>
+void RRSIGGen::doConv(X& x) 
+{
+  x.xfrType(d_type);    x.xfrUInt8(d_algo);
+  x.xfrUInt8(d_labels);
+  x.xfrUInt32(d_origttl);  x.xfrUInt32(d_expire);
+  x.xfrUInt32(d_inception);   x.xfrUInt16(d_tag);
+  x.xfrName(d_signer);
+  xfrSignature(x);
+}
+
+void RRSIGGen::xfrSignature(DNSMessageReader& dmr)
+{
+  d_signature.clear();
+  while(!dmr.eor()) 
+    d_signature.append(1, dmr.getUInt8());
+}
+
+void RRSIGGen::xfrSignature(DNSMessageWriter& dmw)
+{
+  for(uint8_t v : d_signature)
+    dmw.xfrUInt8(v);
+}
+
+void RRSIGGen::xfrSignature(DNSStringWriter& dmw)
+{
+}
+
+void RRSIGGen::xfrSignature(DNSStringReader& dmw)
+{
+}
+
+BOILERPLATE(RRSIG)

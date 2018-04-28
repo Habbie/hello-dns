@@ -5,6 +5,7 @@
 #include "comboaddress.hh"
 
 class DNSMessageReader;
+class DNSStringWriter;
 
 struct DNSStringReader
 {
@@ -12,6 +13,8 @@ struct DNSStringReader
   void skipSpaces();
                                             
   void xfrName(DNSName& name);
+  void xfrType(DNSType& name);
+  void xfrUInt8(uint8_t& v);
   void xfrUInt16(uint16_t& v);
   void xfrUInt32(uint32_t& v);
   void xfrTxt(std::string& txt);
@@ -225,6 +228,34 @@ struct MXGen : RRGen
   uint16_t d_prio;
   DNSName d_name;
 };
+
+//! Generates an RRSIG Resource Record
+struct RRSIGGen : RRGen
+{
+  RRSIGGen(DNSType type, uint16_t tag, const DNSName& signer, const std::string& signature,
+        uint32_t origttl, uint32_t expire, uint32_t inception, uint8_t algo, uint8_t labels) :
+    d_type(type), d_tag(tag), d_signer(signer), d_signature(signature), d_origttl(origttl),
+    d_expire(expire), d_inception(inception), d_algo(algo), d_labels(labels)
+  {}
+  RRSIGGen(DNSMessageReader& dmr);
+  RRSIGGen(DNSStringReader dsr);
+  void toMessage(DNSMessageWriter& dpw) override;
+  std::string toString() const override;
+  DNSType getType() const override { return DNSType::RRSIG; }
+  template<typename X> void doConv(X& x);
+  DNSType d_type;
+  uint16_t d_tag;
+  DNSName d_signer;
+  std::string d_signature;
+  uint32_t d_origttl, d_expire, d_inception;
+  uint8_t d_algo, d_labels;
+
+  void xfrSignature(DNSMessageReader& dr);
+  void xfrSignature(DNSMessageWriter& dmw);
+  void xfrSignature(DNSStringWriter& dmw);
+  void xfrSignature(DNSStringReader& dmw);
+};
+
 
 //! Generates an TXT Resource Record
 struct TXTGen : RRGen

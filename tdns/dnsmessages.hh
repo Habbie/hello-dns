@@ -53,6 +53,13 @@ public:
     payloadpos+=2;
     res=htons(res);
   }
+
+  //! For symmetry, this reads a type
+  void xfrType(DNSType& type)
+  {
+    xfrUInt16((uint16_t&)type);
+  }
+  
   //! Convenience form that returns the next 16 bit integer
   uint16_t getUInt16()
   { uint16_t ret; xfrUInt16(ret); return ret; }
@@ -120,7 +127,7 @@ public:
   DNSMessageWriter& operator=(const DNSMessageWriter&) = delete;
   void randomizeID(); //!< Randomize the id field of our dnsheader
   void clearRRs();
-  void putRR(DNSSection section, const DNSName& name, DNSType type, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
+  void putRR(DNSSection section, const DNSName& name, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
   void setEDNS(uint16_t bufsize, bool doBit, RCode ercode = (RCode)0);
   std::string serialize();
 
@@ -129,6 +136,11 @@ public:
     payload.at(payloadpos++)=val;
   }
 
+  void xfrType(DNSType val)
+  {
+    xfrUInt16((uint16_t)val);
+  }
+  
   uint16_t xfrUInt16(uint16_t val)
   {
     val = htons(val);
