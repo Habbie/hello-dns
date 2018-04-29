@@ -84,9 +84,9 @@ SMARTENUMEND(DNSType);
 //! Stores the class of a DNS query or resource record
 enum class DNSClass : uint16_t
 {
-  IN=1, CHAOS=3
+  IN=1, CH=3
 };
-SMARTENUMSTART(DNSClass) SENUM2(DNSClass, IN, CHAOS) SMARTENUMEND(DNSClass)
+SMARTENUMSTART(DNSClass) SENUM2(DNSClass, IN, CH) SMARTENUMEND(DNSClass)
 
 COMBOENUM4(DNSSection, Question, 0, Answer, 1, Authority, 2, Additional, 3);
 // this semicolon makes Doxygen happy
