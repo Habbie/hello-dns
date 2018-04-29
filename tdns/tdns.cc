@@ -550,7 +550,7 @@ try
   thread udpServer(udpThread, local, &udplistener, &zones);
 
   for(int n = 2; n < argc; ++n) {
-    ComboAddress local2(argv[n]);
+    ComboAddress local2(argv[n], 53);
     auto udplistener2 = new Socket(local2.sin4.sin_family, SOCK_DGRAM);
     SBind(*udplistener2, local2);
     cout<<"Listening on UDP on "<<local2.toStringWithPort()<<endl;
