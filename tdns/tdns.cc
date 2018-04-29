@@ -15,6 +15,7 @@
 #include <signal.h>
 #include "record-types.hh"
 #include "dns-storage.hh"
+#include "tdnssec.hh"
 
 using namespace std;
 
@@ -125,6 +126,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     
     auto bestzone = fnd->zone.get(); // this loads a pointer to the zone contents
 
+    // if they wanted DNSSEC and we got it!
     bool mustDoDNSSEC= doBit && !bestzone->rrsets[DNSType::SOA].signatures.empty();
     
     DNSName searchname(qname), lastnode;
@@ -134,7 +136,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   loopCNAME:;
     /* search for the best node, where we want to benefit from wildcard synthesis
        note that this is the same 'find' we used to find the best zone, but we did not
-       want any wildcard procssing there */
+       want any wildcard processing there */
     
     auto node = bestzone->find(searchname, lastnode, true, &passedZonecut, &passedWcard);
     if(passedZonecut) {
@@ -154,18 +156,9 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
           toresolve.push_back(dynamic_cast<NSGen*>(rr.get())->d_name);
         }
       }
-      if(mustDoDNSSEC) {
-        if(iter = passedZonecut->rrsets.find(DNSType::DS), iter != passedZonecut->rrsets.end()) {
-          cout<<"\tDNSSEC OK query delegation, found a DS at "<<(passedZonecut->getName() + zonename)<<endl;
-          const auto& rrset = iter->second;
-          response.putRR(DNSSection::Authority, passedZonecut->getName() + zonename, rrset.ttl, rrset.contents[0]);
-          cout<<"\tAdding signatures for DS (have "<<rrset.signatures.size()<<")"<<endl;
-          for(const auto& sig : rrset.signatures) {
-            response.putRR(DNSSection::Authority, passedZonecut->getName()+zonename, rrset.ttl, sig);
-
-          }
-        }
-      }
+      if(mustDoDNSSEC) 
+        addDSToDelegation(response, passedZonecut, zonename);
+      
       addAdditional(bestzone, zonename, toresolve, response);
     }
     else if(!searchname.empty()) { // we had parts of the qname that did not match
@@ -177,34 +170,10 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       response.putRR(DNSSection::Authority, zonename, ttl, rrset.contents[0]);
       
       if(mustDoDNSSEC) { // should do DNSSEC
-        for(const auto& sig : rrset.signatures) {
-          response.putRR(DNSSection::Authority, passedZonecut->getName()+zonename, rrset.ttl, sig);
-        }
-        
-        cout<<"\tAt the last node, we have "<< node->children.size()<< " children\n";
-        cout<<"\tLast node left "<<qname.back()<<endl;
-        
-        auto prev = node->children.lower_bound(qname.back())->prev();
-        for(;;) {
-          if(!prev) {
-            cout<<"\tNSEC should maybe loop? there is no previous???"<<endl;
-          }
-          cout<<"\tNSEC should start at "<<prev->getName()<<endl;
-          if(!prev->rrsets.count(DNSType::NSEC)) {
-            cout<<"\tCould not find NSEC record at "<<prev->getName()<<", it is an ENT, going back further"<<endl;
-          }
-          break;
-        }
-        const auto& nsecrr = prev->rrsets.find(DNSType::NSEC);
-        cout<<"\tAdding NSEC & signatures (have "<<nsecrr->second.signatures.size()<<")"<<endl;
-        response.putRR(DNSSection::Authority, prev->getName()+zonename, nsecrr->second.ttl, nsecrr->second.contents[0]);
-        for(const auto& sig : nsecrr->second.signatures) {
-          response.putRR(DNSSection::Authority, prev->getName()+zonename, nsecrr->second.ttl, sig);
-        }
+        addNXDOMAINDNSSEC(response, rrset, qname, node, passedZonecut, zonename);
       }
       if(!CNAMELoopCount) // RFC 1034, 4.3.2, step 3.c
         response.dh.rcode = (int)RCode::Nxdomain;
-
     }
     else {
       cout<<"\tFound node in zone '"<<zonename<<"' for lhs '"<<qname<<"', searchname now '"<<searchname<<"', lastnode '"<<lastnode<<"', passedZonecut="<<passedZonecut<<endl;
@@ -218,9 +187,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         const auto& rrset = iter->second;
         response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, rrset.contents[0]);
         if(mustDoDNSSEC) {
-          for(const auto& sig : rrset.signatures) {
-            response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, sig);
-          }
+          addSignatures(response, rrset, lastnode, passedWcard, zonename);
         }
 
         DNSName target=dynamic_cast<CNAMEGen*>(rrset.contents[0].get())->d_name;
@@ -252,24 +219,8 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
             if(i2->first == DNSType::MX)
               additional.push_back(dynamic_cast<MXGen*>(rr.get())->d_name);
           }
-          if(mustDoDNSSEC) {
-            cout<<"\tAdding signatures for "<<i2->first<<" (have "<<rrset.signatures.size()<<")"<<endl;
-            for(const auto& sig : rrset.signatures) {
-              response.putRR(DNSSection::Answer, lastnode+zonename, rrset.ttl, sig);
-            }
-            
-            if(passedWcard) {
-              cout<<"\tAdding the wildcard NSEC at "<<passedWcard->getName()<<endl;
-              auto nseciter = passedWcard->rrsets.find(DNSType::NSEC);
-              if(nseciter != passedWcard->rrsets.end()) {
-                response.putRR(DNSSection::Authority, passedWcard->getName()+zonename, nseciter->second.ttl, nseciter->second.contents[0]);
-
-                for(const auto& sig : nseciter->second.signatures) {
-                  response.putRR(DNSSection::Authority, passedWcard->getName()+zonename, nseciter->second.ttl, sig);
-                }
-              }
-            }
-          }
+          if(mustDoDNSSEC) 
+            addSignatures(response, rrset, lastnode, passedWcard, zonename);
         }
       }
       else {
@@ -278,22 +229,8 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
         auto ttl = min(rrset.ttl, dynamic_cast<SOAGen*>(rrset.contents[0].get())->d_minimum); // 2308 3
 
         response.putRR(DNSSection::Authority, zonename, ttl, rrset.contents[0]);
-        if(mustDoDNSSEC) {
-          cout<<"\tAdding signatures for SOA (have "<<rrset.signatures.size()<<")"<<endl;
-          for(const auto& sig : rrset.signatures) {
-            response.putRR(DNSSection::Authority, zonename, rrset.ttl, sig);
-          }
-        
-          if(node->rrsets.count(DNSType::NSEC)) {
-            const auto& nsecrr = *node->rrsets.find(DNSType::NSEC);
-            cout<<"\tAdding NSEC & signatures (have "<<nsecrr.second.signatures.size()<<")"<<endl;
-                        
-            response.putRR(DNSSection::Authority, node->getName()+zonename, rrset.ttl, nsecrr.second.contents[0]);
-            for(const auto& sig : nsecrr.second.signatures) {
-              response.putRR(DNSSection::Authority, node->getName()+zonename, rrset.ttl, sig);
-            }
-          }
-        }
+        if(mustDoDNSSEC) 
+          addNoErrorDNSSEC(response, node, rrset, zonename);
       }
       addAdditional(bestzone, zonename, additional, response);
     }
@@ -378,6 +315,8 @@ try
 catch(std::out_of_range& e) { // exceeded packet size
   cout<<"\tAdditional records would have overflowed the packet, stopped adding them, not truncating yet\n";
 }
+
+
 
 /*! \brief Writes a DNSMessageWriter to a TCP/IP socket, with length envelope
 
