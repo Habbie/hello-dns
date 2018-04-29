@@ -132,21 +132,24 @@ const DNSNode* DNSNode::next() const
 
 const DNSNode* DNSNode::prev() const
 {
-  auto us = this; 
+  auto us = this;
+  if(!us->d_parent)
+    return 0;
+  
   while(us->d_parent) {
-    //    cout<<"Looking for node "<<us->d_name<<" at parent"<<endl;
+    //  cout<<"Looking for node "<<us->d_name<<" at parent"<<endl;
     auto iter=us->d_parent->children.find(*us);
     if(iter != us->d_parent->children.cbegin()) {
-      //      cout<<"Found that at parent node, returning the one left it"<<endl;
+      //cout<<"Found that at parent node, returning the one left it"<<endl;
       --iter;
       return &*iter;
     }
     else {
-      //      cout<<"That was the leftmost node already at parent, need to go a level up"<<endl;
+      //cout<<"That was the leftmost node already at parent, need to go a level up"<<endl;
       us = us->d_parent;
     }
   }
-  return 0;
+  return us;
 }
 
 void DNSNode::addRRs(std::unique_ptr<RRGen>&&a)

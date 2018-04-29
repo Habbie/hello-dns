@@ -131,9 +131,26 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
     DNSName zonename;
     auto fnd = zones.find(qname, zonename); 
     if(!fnd || !fnd->zone) {  // check if we found an actual zone
-      cout<<"\tNo zone matched"<<endl;
-      response.dh.rcode = (uint8_t)RCode::Refused;
-      return true;
+      cout<<"\tNo zone matched ("<< (void*)fnd<<")" <<endl;
+      if(fnd)
+        cout<<"\tLast match was "<<fnd->getName()<<", zone = "<<(void*)fnd->zone.get()<<endl;
+
+      for(;;) {
+        qname.push_back(fnd->d_name);
+        fnd = fnd->d_parent;
+        if(!fnd) break;
+
+        cout<<"\tTrying parent node"<<endl;
+        if(fnd->zone) {
+          zonename = fnd->getName();
+          break;
+        }
+      } 
+      
+      if(!fnd) {
+        response.dh.rcode = (uint8_t)RCode::Refused;
+        return true;
+      }
     }
 
     // qname is now relative to the zonename

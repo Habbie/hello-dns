@@ -63,7 +63,10 @@ void addNXDOMAINDNSSEC(DNSMessageWriter& response, const RRSet& rrset, const DNS
   cout<<"\tAt the last node, we have "<< node->children.size()<< " children\n";
   cout<<"\tLast node left "<<qname.back()<<endl;
   
-  auto prev = node->children.lower_bound(qname.back())->prev();
+  auto place = node->children.lower_bound(qname.back());
+  cout<<"\tplace: "<<place->getName()<<endl;
+  
+  auto prev = place->prev();
   for(;;) {
     if(!prev) {
       cout<<"\tNSEC should maybe loop? there is no previous???"<<endl;
