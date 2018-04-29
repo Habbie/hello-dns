@@ -168,12 +168,12 @@ static void nboInc(uint16_t& counter) // network byte order inc
   counter = htons(ntohs(counter) + 1);  
 }
 
-void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, uint32_t ttl, const std::unique_ptr<RRGen>& content)
+void DNSMessageWriter::putRR(DNSSection section, const DNSName& name, uint32_t ttl, const std::unique_ptr<RRGen>& content, DNSClass dclass)
 {
   auto cursize = payloadpos;
   try {
     xfrName(name);
-    xfrUInt16((int)content->getType()); xfrUInt16(1);
+    xfrUInt16((int)content->getType()); xfrUInt16((int)dclass);
     xfrUInt32(ttl);
     auto pos = xfrUInt16(0); // placeholder
     content->toMessage(*this);
@@ -215,7 +215,7 @@ void DNSMessageWriter::putEDNS(uint16_t bufsize, RCode ercode, bool doBit)
   nboInc(dh.arcount);
 }
 
-DNSMessageWriter::DNSMessageWriter(const DNSName& name, DNSType type, int maxsize) : d_qname(name), d_qtype(type)
+DNSMessageWriter::DNSMessageWriter(const DNSName& name, DNSType type, DNSClass qclass, int maxsize) : d_qname(name), d_qtype(type), d_qclass(qclass)
 {
   memset(&dh, 0, sizeof(dh));
   payload.resize(maxsize - sizeof(dh));
@@ -229,7 +229,7 @@ void DNSMessageWriter::clearRRs()
   payloadpos=0;
   xfrName(d_qname, false);
   xfrUInt16((uint16_t)d_qtype);
-  xfrUInt16(1); // class
+  xfrUInt16((uint16_t)d_qclass);
 }
 
 string DNSMessageWriter::serialize() 

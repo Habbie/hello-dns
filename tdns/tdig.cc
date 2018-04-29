@@ -12,9 +12,7 @@
    @brief Tiny 'dig'-like utility to create DNS queries & print responses
 */
 
-
 using namespace std;
-
 
 int main(int argc, char** argv)
 try

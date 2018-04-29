@@ -80,7 +80,7 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   dm.getQuestion(qname, qtype);
 
   DNSName origname=qname; // we need this for error reporting, we munch the original name
-  cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<qname<<" and type "<<qtype<<endl;
+  cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<qname<<" "<<dm.d_qclass<<" "<<qtype<<endl;
 
   try {
     response.dh.id = dm.dh.id; response.dh.rd = dm.dh.rd;
@@ -111,6 +111,22 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
       return true;
     }
 
+    if(dm.d_qclass == DNSClass::CH) {
+      if(qtype == DNSType::TXT) {
+        DNSName versionbind({"version", "bind"}), versiontdns({"version", "tdns"});
+        if(qname == versionbind || qname == versiontdns) {
+          response.putRR(DNSSection::Answer, qname, 3600, TXTGen::make({"tdns compiled on " __DATE__ " " __TIME__ }), dm.d_qclass);
+          return true;
+        }
+      }
+      response.dh.rcode = (int)RCode::Refused;
+      return true;
+    }
+    else if(dm.d_qclass != DNSClass::IN) {
+      response.dh.rcode = (int)RCode::Refused;
+      return true;
+    }
+    
     // find the best zone for this query
     DNSName zonename;
     auto fnd = zones.find(qname, zonename); 
@@ -262,7 +278,7 @@ void udpThread(ComboAddress local, Socket* sock, const DNSNode* zones)
       DNSMessageReader dm(message);
       dm.getQuestion(qname, qtype);
       
-      DNSMessageWriter response(qname, qtype);
+      DNSMessageWriter response(qname, qtype, dm.d_qclass);
       
       if(processQuestion(*zones, dm, remote, response)) {
         if(response.dh.rcode)
@@ -377,7 +393,7 @@ try
     DNSType type;
     dm.getQuestion(name, type);
 
-    DNSMessageWriter response(name, type, 16384);
+    DNSMessageWriter response(name, type, DNSClass::IN, 16384);
 
     if(type == DNSType::AXFR || type == DNSType::IXFR) {
       if(dm.dh.opcode || dm.dh.qr) {

@@ -115,19 +115,19 @@ public:
   uint16_t payloadpos=0;
   DNSName d_qname;
   DNSType d_qtype;
-  DNSClass d_qclass;
+  DNSClass d_qclass{DNSClass::IN};
   bool haveEDNS{false};
   bool d_doBit;
   bool d_nocompress{false}; // if set, never compress. For AXFR/IXFR
   RCode d_ercode{(RCode)0};
 
-  DNSMessageWriter(const DNSName& name, DNSType type, int maxsize=500);
+  DNSMessageWriter(const DNSName& name, DNSType type, DNSClass qclass=DNSClass::IN, int maxsize=500);
   ~DNSMessageWriter();
   DNSMessageWriter(const DNSMessageWriter&) = delete;
   DNSMessageWriter& operator=(const DNSMessageWriter&) = delete;
   void randomizeID(); //!< Randomize the id field of our dnsheader
   void clearRRs();
-  void putRR(DNSSection section, const DNSName& name, uint32_t ttl, const std::unique_ptr<RRGen>& rr);
+  void putRR(DNSSection section, const DNSName& name, uint32_t ttl, const std::unique_ptr<RRGen>& rr, DNSClass dclass = DNSClass::IN);
   void setEDNS(uint16_t bufsize, bool doBit, RCode ercode = (RCode)0);
   std::string serialize();
 
