@@ -21,14 +21,14 @@ contain arbitrary data.  DNS is all about names.  Every name can have data
 of several *types*.  The most well known externally useful types are *A* for
 IPv4 addresses, *AAAA* for IPv6 addresses and *MX* for mailserver details.
 DNS also has types that have meaning for its own use, like *NS*, *CNAME* and
-*SOA*. 
+*SOA*.
 
 When we ask a DNS question we call this a *query*. We call the reply the
 *response*.  These queries and responses are contained in DNS messages. When
 UDP is used, the message is also the packet. Note that [TCP support is
 mandatory](https://tools.ietf.org/html/rfc7766.txt) for DNS in 2018.
 
-A DNS message has: 
+A DNS message has:
 
  * A header
  * A query name and query type
@@ -42,18 +42,18 @@ additional sections.
 The header has the following fields that are useful for queries and
 responses:
 
- * ID: a 16 bit identifier used as part of the process of matching queries to responses 
+ * ID: a 16 bit identifier used as part of the process of matching queries to responses
  * QR: Set to 0 to identify a message as a query, 1 for a response
  * OPCODE: 0 for a standard query, other opcodes also exist
- * RD: Set to indicate that this question wants *recursion* 
- 
+ * RD: Set to indicate that this question wants *recursion*
+
 Relevant for responses:
  * AA: This response has Authoritative Answers
  * RA: Recursive service was available
  * TC: Not all the required parts of the response fit in the UDP message
  * RCODE: Result code. 0 is ok, 2 is SERVFAIL, 3 is NXDOMAIN.
 
-DNS queries are mostly sent over UDP, and UDP packets can easily be spoofed. 
+DNS queries are mostly sent over UDP, and UDP packets can easily be spoofed.
 To recognize the authentic response to a query it is important that the ID
 field is random or at least unpredictable.  This is however not enough
 protection, so the source port of a UDP DNS query [must also be
@@ -61,7 +61,7 @@ unpredictable](https://tools.ietf.org/html/rfc5452#section-9).
 
 DNS messages can also be sent over TCP/IP. Because TCP is not a datagram
 oriented protocol, each DNS message in TCP/IP is preceded by a 16 bit
-network endian length field. 
+network endian length field.
 
 DNS servers must listen on both UDP and TCP, port 53.
 
@@ -148,7 +148,7 @@ save a lot of pain when processing DNS names with spaces or dots in them.
 Finally, DNS queries are
 [case-insensitive](https://tools.ietf.org/html/rfc4343).  This however is
 defined rather mechanically, and limited to ASCII.  Operators do not need to know that in some
-encodings a Ü is equivalent to ü when compared case insensitively. 
+encodings a Ü is equivalent to ü when compared case insensitively.
 For DNS purposes, the fifth bit (0x20) is ignored when comparing octets
 within a-z and A-Z.
 
@@ -196,11 +196,11 @@ a lot like the original DNS query. Here is the beginning of a response:
 *****************************************************************
 
 Note that QR is now set to 1 to denote a response.  The 'AA' bit was set
-because this answer came from a from a server authoritative for this name.
+because this answer came from a server authoritative for this name.
 
 In addition, ANCOUNT is now set to '1', indicating a single answer is to be
 found in the message, immediately after the original question, which has been
-repeated from the query message. 
+repeated from the query message.
 
 To recognize the right response, check that the ID field is the same as the
 query, make sure the answer arrives on the right source port and that the
@@ -252,7 +252,7 @@ names can (and often MUST) be compressed.  The details of this compression
 are arcane and easy to get wrong, leading to infinite loops or buffer
 overflows.  So tread very carefully. If you remember one thing, make sure
 that a pointer always has to go to a lower position in the packet. Also
-beware of signed/unsigned arithmetic. 
+beware of signed/unsigned arithmetic.
 
 In this case, the DNS name of the answer is encoded is `0xc0 0x0c`.  The c0
 part has the two most significant bits set, indicating that the following
@@ -261,7 +261,7 @@ this points to position 12 (= `0x0c`) within the packet, which is immediately
 after the DNS header.  There we find 'www.ietf.org'.
 
 So what this means is that the answer about the DNS name `www.ietf.org` is
-also called `www.ietf.org`. 
+also called `www.ietf.org`.
 
 This is then followed in the packet by '28', which denotes AAAA (IPv6), and
 the usual 'class' of 1. Then a whole 32 bits are devoted to the Time To Live
@@ -306,7 +306,7 @@ Of specific note, many people have attempted to write a grammar (say, in
 Yacc) for zonefiles and it is almost impossible.
 
 ## DNS Names
-The concept of a DNS name is non-trivial and frequently misunderstood. 
+The concept of a DNS name is non-trivial and frequently misunderstood.
 Despite writing 'www.ietf.org' from left to right, within DNS it is fairer
 to describe it as 'org' below the root node, with below the 'org' node a
 node called 'ietf'.  Finally to the 'ietf' node is attached a node called
@@ -352,12 +352,12 @@ The 'org' zone for example might look like this:
 *                    / \              |                                                         *
 *                   /   \             |                                                         *
 *               .--+.    +---.      .-+-.                                                       *
-*              + ord |  | fra +    | ... +                                                      *  
+*              + ord |  | fra +    | ... +                                                      *
 *               '-+-'    '-+-'      '---'                                                       *
 *                 |        |                                                                    *
-*               .-+-.    .-+-.                                                                  *                   
-*              + ns1 |  | ns2 +                                                                 *                   
-*               '-+-'    '---'                                                                  *                   
+*               .-+-.    .-+-.                                                                  *
+*              + ns1 |  | ns2 +                                                                 *
+*               '-+-'    '---'                                                                  *
 *                                                                                               *
 *************************************************************************************************
 
@@ -424,7 +424,7 @@ is the one for the root zone (called '.').  As of 2018, it looks like this:
 
 For details of what all these fields mean, please see the [authoritative
 server document](auth.md.html).
- 
+
 The final number however is important here.  86400 denotes that if a
 response says a name or RRSET does not exist, it will continue to not exist
 for the next day, and that this knowledge may be cached.
@@ -432,16 +432,16 @@ for the next day, and that this knowledge may be cached.
 ### Zone cuts
 As noted, 'www.ietf.org' can live in four places. If it lives where it
 currently does, in the 'ietf.org' zone, it passes through two zone cuts:
-From . to org, from org to ietf.org. 
+From . to org, from org to ietf.org.
 
 When an authoritative server receives a query for 'www.ietf.org', it
 consults which zones it knows about and answers from the most specific zone
-it has available. 
+it has available.
 
 For a root-server, which only knows about the root zone, this means
 consulting the '.' zone. As noted, 'www.ietf.org' is actually a tree, 'org'
 -> 'ietf' -> 'www'. And as luck will have it, the first node 'org' is
-present in the root zone. 
+present in the root zone.
 
 Attached to that node is an NS RRSET, which has the names of nameservers
 that host the ORG zone.
@@ -472,7 +472,7 @@ $ORIGIN ietf.org.
 
 Note how in this zone file example names not ending on a '.' are interpreted
 as being part of ietf.org. The '@' is a way to specify the name of the
-apex. Lines two and three omit a name, so they default to '@' too. 
+apex. Lines two and three omit a name, so they default to '@' too.
 
 This zone lists ns1.ietf.org and ns2.ietf.org as its nameservers.
 Being part of the zone, this data is *authoritative*. Any queries sent to
@@ -548,7 +548,7 @@ and not found. Often, using this 'apex CNAME' may seem to work, but it
 really doesn't.
 
 In hindsight, the CNAME should have been 'typed' to apply only to specific
-query types. 
+query types.
 
 When a server encounters a CNAME with the name of a name it was looking for,
 it will 'follow' the chain to where it points. And please be aware that this
@@ -574,7 +574,7 @@ wildcard match will not proceed to the '*' entry.
 
 Wildcards synthesize new answers. This means that, unless explicitly
 queried, no '*.ietf.org' record will be served. Instead, a 'www.ietf.org'
-record is created on the fly. 
+record is created on the fly.
 
 ## Truncation
 Without implementing the optional EDNS protocol extension, all UDP responses
@@ -613,7 +613,7 @@ and IXFR.
 An ANY query instructs a nameserver to return all types it immediately has
 available for a name. This 'immediately' qualification makes ANY queries
 unsuitable for talking to resolvers - it is not sure the response is in any
-way complete. 
+way complete.
 
 Because of the potential of creating huge answers, the use of ANY is
 problematic even when talking to authoritative servers, and it may no longer
@@ -626,7 +626,7 @@ Resolvers do not process AXFR or IXFR queries.
 # That's it for basic DNS!
 This is the core of DNS. There are quite some parts that have not been
 discussed, but based on the explanations above, it is possible to write a
-compliant authoritative server. 
+compliant authoritative server.
 
 ## Further reading
 
