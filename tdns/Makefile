@@ -1,6 +1,7 @@
 CXXFLAGS:=-std=gnu++14 -Wall -O2 -MMD -MP -ggdb -Iext/simplesocket -Iext/catch -pthread
+CFLAGS:= -Wall -O2 -MMD -MP -ggdb 
 
-PROGRAMS = tdns tdig
+PROGRAMS = tdns tdig tdns-c-test
 
 all: $(PROGRAMS)
 
@@ -18,6 +19,9 @@ tdns: tdns.o record-types.o dns-storage.o dnsmessages.o contents.o ext/simplesoc
 
 tdig: tdig.o record-types.o dns-storage.o dnsmessages.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
 	g++ -std=gnu++14 $^ -o $@ -pthread
+
+tdns-c-test: tdns-c-test.o tdns-c.o record-types.o dns-storage.o dnsmessages.o ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o
+	g++ -std=gnu++14 $^ -o $@ 
 
 
 testrunner: tests.o record-types.o dns-storage.o dnsmessages.o 
