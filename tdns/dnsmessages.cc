@@ -88,6 +88,13 @@ bool DNSMessageReader::getRR(DNSSection& section, DNSName& name, DNSType& type, 
 {
   if(payloadpos == payload.size())
     return false;
+  if(rrpos < ntohs(dh.ancount))
+    section = DNSSection::Answer;
+  else if(rrpos < ntohs(dh.ancount) + ntohs(dh.nscount))
+    section = DNSSection::Authority;
+  else
+    section = DNSSection::Additional;
+  ++rrpos;
   name = getName();
   type=(DNSType)getUInt16();
   /* uint16_t lclass = */ getUInt16(); // class
