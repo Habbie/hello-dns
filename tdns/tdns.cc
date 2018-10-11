@@ -541,7 +541,7 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
 int main(int argc, char** argv)
 try
 {
-  if(argc != 2) {
+  if(argc < 2) {
     cerr<<"Syntax: tdns ipaddress:port"<<endl;
     return(EXIT_FAILURE);
   }
@@ -552,7 +552,6 @@ try
 
   Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
   SBind(udplistener, local);
-
   
   Socket tcplistener(local.sin4.sin_family, SOCK_STREAM);
   SSetsockopt(tcplistener, SOL_SOCKET, SO_REUSEPORT, 1);
@@ -566,6 +565,16 @@ try
   cout<<"Listening on TCP & UDP on "<<local.toStringWithPort()<<endl;
 
   thread udpServer(udpThread, local, &udplistener, &zones);
+
+  for(int n = 2; n < argc; ++n) {
+    ComboAddress local2(argv[n], 53);
+    auto udplistener2 = new Socket(local2.sin4.sin_family, SOCK_DGRAM);
+    SBind(*udplistener2, local2);
+    cout<<"Listening on UDP on "<<local2.toStringWithPort()<<endl;
+    thread udpServer2(udpThread, local2, udplistener2, &zones);
+    udpServer2.detach();
+  }
+  
   cout<<"Server is live"<<endl;
   for(;;) {
     ComboAddress remote(local); // this sets the family correctly

@@ -18,6 +18,7 @@ public:
   struct dnsheader dh=dnsheader{}; //!< the DNS header
   std::vector<uint8_t> payload;    //!< The payload
   uint16_t payloadpos{0};          //!< Current position of processing
+  uint16_t rrpos{0};               //!< Used in getRR to set section correctly
   uint16_t d_endofrecord;
   //! are we at the end of a record?
   bool eor() const { return payloadpos == d_endofrecord; } 
