@@ -170,6 +170,7 @@ struct RRGen
   virtual void toMessage(DNSMessageWriter& dpw) = 0;
   virtual std::string toString() const = 0;
   virtual DNSType getType() const = 0;
+  virtual ~RRGen();
 };
 
 //! Resource records are treated as a set and have one TTL for the whole set
