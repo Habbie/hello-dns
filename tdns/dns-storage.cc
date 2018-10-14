@@ -48,7 +48,8 @@ DNSName makeDNSName(const std::string& str)
 }
 
 
-DNSNode::~DNSNode() = default; 
+DNSNode::~DNSNode() = default;
+RRGen::~RRGen() = default;
 
 //! The big RFC 1034-compatible find function. Will perform wildcard synth if requested & let you know about it
 const DNSNode* DNSNode::find(DNSName& name, DNSName& last, bool wildcard, const DNSNode** passedZonecut, const DNSNode** passedwcard) const
