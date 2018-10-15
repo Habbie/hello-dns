@@ -108,7 +108,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
 
     try {
       cout << prefix<<"Sending to server "<<sp.first<<" on "<<server.toString()<<endl;
-      DNSMessageReader dmr = getResponse(server, dn, dt); // takes care of EDNS and TCP
+      DNSMessageReader dmr = getResponse(server, dn, dt, depth); // takes care of EDNS and TCP
 
       DNSSection rrsection;
       uint32_t ttl;
