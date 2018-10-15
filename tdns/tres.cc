@@ -28,16 +28,78 @@ ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
   return ret;
 }
 
+
+/** This function guarantees that you will get an answer from this server. It will drop EDNS for you
+    and eventually it will even fall back to TCP for you. If nothing works, an exception is thrown
+*/
+DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth=0)
+{
+  std::string prefix(depth, ' ');
+  prefix += dn.toString() + "|"+toString(dt)+" ";
+
+  bool doEDNS=true, doTCP=false;
+
+  for(int tries = 0; tries < 4 ; ++ tries) {
+    DNSMessageWriter dmw(dn, dt);
+
+    
+    dmw.dh.rd = false;
+    dmw.randomizeID();
+    if(doEDNS)
+      dmw.setEDNS(1000, true);
+    string resp;
+    if(doTCP) {
+      Socket sock(server.sin4.sin_family, SOCK_STREAM);
+      SConnect(sock, server);
+      string ser = dmw.serialize();
+      uint16_t len = htons(ser.length());
+      string tmp((char*)&len, 2);
+      SWrite(sock, tmp);
+      SWrite(sock, ser);
+
+      tmp=SRead(sock, 2);
+      len = ntohs(*((uint16_t*)tmp.c_str()));
+      resp = SRead(sock, len);
+    }
+    else {
+      Socket sock(server.sin4.sin_family, SOCK_DGRAM);
+      SConnect(sock, server);
+      SWrite(sock, dmw.serialize());
+      double timeout=1;
+      int err = waitForData(sock, &timeout);
+      if( err <= 0) {
+        throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+ (err ? string(strerror(errno)): string("Timeout")));
+      }
+      ComboAddress ign=server;
+      resp =SRecvfrom(sock, 65535, ign); 
+    }
+    DNSMessageReader dmr(resp);
+    if((RCode)dmr.dh.rcode == RCode::Formerr) {
+      cout << prefix <<"Got a Formerr, resending without EDNS"<<endl;
+      doEDNS=false;
+      continue;
+    }
+    if(dmr.dh.tc) {
+      cout << prefix <<"Got a truncated answer, retrying over TCP"<<endl;
+      doTCP=true;
+      continue;
+    }
+    return dmr;
+  }
+  // should never get here
+}
+
+// this is a different kind of error: we KNOW your thing does not exist
+struct NxdomainException{};
+struct NodataException{};
+
+
+
 vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const multimap<DNSName, ComboAddress>& servers=g_root)
 {
   std::string prefix(depth, ' ');
-  prefix += dn.toString() + " ";
-  DNSMessageWriter dmw(dn, dt);
-          
-  dmw.dh.rd = false;
-  dmw.randomizeID();
-  dmw.setEDNS(4000, false);
-
+  prefix += dn.toString() + "|"+toString(dt)+" ";
+ 
   vector<std::unique_ptr<RRGen>> ret;
   for(auto& sp : servers) {
     ret.clear();
@@ -45,18 +107,9 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
     server.sin4.sin_port = htons(53);
 
     try {
-      cout << prefix<<"Sending to server "<<server.toString()<<endl;
-      Socket sock(server.sin4.sin_family, SOCK_DGRAM);
-      SConnect(sock, server);
-      SWrite(sock, dmw.serialize());
-      double timeout=1;
-      if(waitForData(sock, &timeout) <= 0) {
-        throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+string(strerror(errno)));
-      }
-      string resp =SRecvfrom(sock, 65535, server); 
-      
-      DNSMessageReader dmr(resp);
-      
+      cout << prefix<<"Sending to server "<<sp.first<<" on "<<server.toString()<<endl;
+      DNSMessageReader dmr = getResponse(server, dn, dt); // takes care of EDNS and TCP
+
       DNSSection rrsection;
       uint32_t ttl;
       
@@ -65,15 +118,15 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
       
       dmr.getQuestion(rrdn, rrdt);
       
-      cout << prefix<<"Received "<<resp.size()<<" byte response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
+      cout << prefix<<"Received response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
       
       // check rrdn == dn, rrdt == dt, transaction id
 
       if((RCode)dmr.dh.rcode == RCode::Nxdomain) {
         cout << prefix<<"Got an Nxdomain, it does not exist"<<endl;
-        return ret;
+        throw NxdomainException();
       }
-      if((RCode)dmr.dh.rcode != RCode::Noerror) {
+      else if((RCode)dmr.dh.rcode != RCode::Noerror) {
         throw std::runtime_error(string("Answer from authoritative server had an error: ") + toString((RCode)dmr.dh.rcode));
       }
       if(dmr.dh.aa) {
@@ -108,33 +161,45 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
         cout << prefix<<"Done, returning "<<ret.size()<<" results\n";
         return ret;
       }
+      else if(dmr.dh.aa) {
+        cout << prefix <<"No data response"<<endl;
+        throw NodataException();
+      }
       if(!addresses.empty()) {
         cout << prefix<<"Have "<<addresses.size()<<" IP addresses to iterate to: ";
         for(const auto& p : addresses)
           cout << p.first <<"="<<p.second.toString()<<" ";
         cout <<endl;
-        return resolveAt(dn, dt, depth+1, addresses);
+        auto res2=resolveAt(dn, dt, depth+1, addresses);
+        if(!res2.empty())
+          return res2;
+        cout << prefix<<"The IP addresses we had did not provide a good answer"<<endl;
       }
-      else {
-        cout << prefix<<"Don't have a resolved nameserver to ask, trying to resolve "<<nsses.size()<<" names"<<endl;
+      
+      cout << prefix<<"Don't have a resolved nameserver to ask anymore, trying to resolve "<<nsses.size()<<" names"<<endl;
+
+      for(const auto& name: nsses) {
         multimap<DNSName, ComboAddress> newns;
-        for(const auto& name: nsses) {
-          cout << prefix<<"Attempting to resolve NS "<<name<<endl;
-          auto result = resolveAt(name, DNSType::A, depth+1);
-          cout << prefix<<"Got "<<result.size()<<" nameserver IPv4 addresses, adding to list"<<endl;
-          for(const auto& res : result)
-            newns.insert({name, getIP(res)});
-          result = resolveAt(name, DNSType::AAAA, depth+1);
-          cout << prefix<<"Got "<<result.size()<<" nameserver IPv6 addresses, adding to list"<<endl;
-          for(const auto& res : result)
-            newns.insert({name, getIP(res)});
+        cout << prefix<<"Attempting to resolve NS "<<name<<endl;
+        for(const DNSType& qtype : {DNSType::A, DNSType::AAAA}) {
+          try {
+            auto result = resolveAt(name, qtype, depth+1);
+            cout << prefix<<"Got "<<result.size()<<" nameserver IPv4 addresses, adding to list"<<endl;
+            for(const auto& res : result)
+              newns.insert({name, getIP(res)});
+          }
+          catch(...)
+          {
+            cout << prefix <<"Failed to resolve name for "<<name<<"|"<<qtype<<endl;
+          }
         }
-        cout << prefix<<"We now have "<<newns.size()<<" resolved names to try"<<endl;
+        cout << prefix<<"We now have "<<newns.size()<<" resolved addresses to try"<<endl;
+        if(newns.empty())
+          continue;
         auto res2 = resolveAt(dn, dt, depth+1, newns);
         if(!res2.empty())
           return res2;
       }
-      break;
     }
     catch(std::exception& e) {
       cout << prefix <<"Error resolving: " << e.what() << endl;
@@ -166,5 +231,15 @@ try
 catch(std::exception& e)
 {
   cerr<<"Fatal error: "<<e.what()<<endl;
+  return EXIT_FAILURE;
+}
+catch(NxdomainException& e)
+{
+  cout<<"Name does not exist"<<endl;
+  return EXIT_FAILURE;
+}
+catch(NodataException& e)
+{
+  cout<<"Name does not have datatype requested"<<endl;
   return EXIT_FAILURE;
 }
