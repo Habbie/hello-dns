@@ -49,7 +49,10 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
       Socket sock(server.sin4.sin_family, SOCK_DGRAM);
       SConnect(sock, server);
       SWrite(sock, dmw.serialize());
-      
+      double timeout=1;
+      if(waitForData(sock, &timeout) <= 0) {
+        throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+string(strerror(errno)));
+      }
       string resp =SRecvfrom(sock, 65535, server); 
       
       DNSMessageReader dmr(resp);
