@@ -16,8 +16,10 @@ using namespace std;
 
 multimap<DNSName, ComboAddress> g_root;
 unsigned int g_numqueries;
-bool g_skipIPv6{true}; 
+bool g_skipIPv6{true};  //!< set this if you have no functioning IPv6
 
+/** Helper function that extracts a useable IP address from an
+    A or AAAA resource record. Returns sin_family == 0 if it didn't work */
 ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
 {
   ComboAddress ret;
@@ -31,6 +33,7 @@ ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
   return ret;
 }
 
+//! Thrown if too many queries have been sent.
 struct TooManyQueriesException{};
 
 /** This function guarantees that you will get an answer from this server. It will drop EDNS for you
@@ -109,7 +112,7 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
       cout << prefix << "What we received was not a response, ignoring"<<endl;
       continue;
     }
-    if((RCode)dmr.dh.rcode == RCode::Formerr) {
+    if((RCode)dmr.dh.rcode == RCode::Formerr) { // XXX this should check that there is no OPT in the response
       cout << prefix <<"Got a Formerr, resending without EDNS"<<endl;
       doEDNS=false;
       continue;
@@ -125,8 +128,9 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
   return DNSMessageReader(""); // just to make compiler happy
 }
 
-// this is a different kind of error: we KNOW your thing does not exist
+//! this is a different kind of error: we KNOW your name does not exist
 struct NxdomainException{};
+//! Or if your type does not exist
 struct NodataException{};
 
 
@@ -141,7 +145,9 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
   prefix += dn.toString() + "|"+toString(dt)+" ";
  
   vector<std::unique_ptr<RRGen>> ret;
-
+  // it is good form to sort the servers in order of response time
+  // for tres, this is not done, but it would be good to randomize this a bit
+  
   for(auto& sp : servers) {
     ret.clear();
     ComboAddress server=sp.second;
@@ -312,7 +318,7 @@ try
 
 
   auto res = resolveAt(dn, dt);
-  cout<<"Result: "<<endl;
+  cout<<"Result or query for "<< dn <<"|"<<toString(dt)<<endl;
   for(const auto& r : res) {
     cout<<r->toString()<<endl;
   }
