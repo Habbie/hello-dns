@@ -244,7 +244,6 @@ string DNSMessageWriter::serialize()
   try {
     if(haveEDNS && !d_serialized) {
       d_serialized=true;
-      cout<<"\tAdding EDNS to DNS Message"<<endl;
       putEDNS(payload.size() + sizeof(dnsheader), d_ercode, d_doBit);
     }
     std::string ret((const char*)&dh, ((const char*)&dh) + sizeof(dnsheader));
