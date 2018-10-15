@@ -1,4 +1,3 @@
-	Adding EDNS to DNS Message
 Received 841 byte response with RCode Noerror, qname www.powerdns.com., qtype A
 com. IN NS 172800 a.gtld-servers.net.
 com. IN NS 172800 b.gtld-servers.net.
