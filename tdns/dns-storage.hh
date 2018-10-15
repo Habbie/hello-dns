@@ -73,12 +73,12 @@ SMARTENUMEND(RCode);
 enum class DNSType : uint16_t
 {
   A = 1, NS = 2, CNAME = 5, SOA=6, PTR=12, MX=15, TXT=16, AAAA = 28, SRV=33, NAPTR=35, DS=43, RRSIG=46,
-  NSEC=47, DNSKEY=48, NSEC3=50, OPT=41, IXFR = 251, AXFR = 252, ANY = 255
+  NSEC=47, DNSKEY=48, NSEC3=50, OPT=41, IXFR = 251, AXFR = 252, ANY = 255, CAA = 257
 };
 
 SMARTENUMSTART(DNSType)
 SENUM13(DNSType, A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, SRV, NAPTR, DS, RRSIG, NSEC)
-SENUM6(DNSType, DNSKEY, NSEC3, OPT, IXFR, AXFR, ANY)
+SENUM7(DNSType, DNSKEY, NSEC3, OPT, IXFR, AXFR, ANY, CAA)
 SMARTENUMEND(DNSType);
 
 //! Stores the class of a DNS query or resource record
@@ -152,6 +152,11 @@ struct DNSName
     return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end())==0 &&
       std::lexicographical_compare(rhs.begin(), rhs.end(), begin(), end())==0;
   }
+  bool operator!=(const DNSName& rhs) const
+  {
+    return !operator==(rhs);
+  }
+
   bool operator<(const DNSName& rhs) const
   {
     return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end());
