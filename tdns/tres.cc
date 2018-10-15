@@ -9,14 +9,14 @@
 
 /*! 
    @file
-   @brief Tiny resolver
+   @brief Teachable resolver
 */
 
 using namespace std;
 
 multimap<DNSName, ComboAddress> g_root;
 unsigned int g_numqueries;
-bool g_skipIPv6{true};  //!< set this if you have no functioning IPv6
+bool g_skipIPv6{false};  //!< set this if you have no functioning IPv6
 
 /** Helper function that extracts a useable IP address from an
     A or AAAA resource record. Returns sin_family == 0 if it didn't work */
@@ -59,7 +59,7 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
     dmw.dh.rd = false;
     dmw.randomizeID();
     if(doEDNS) 
-      dmw.setEDNS(1500, true); 
+      dmw.setEDNS(1500, false);  // no DNSSEC for now
     string resp;
     double timeout=1.0;
     if(doTCP) {
@@ -135,11 +135,13 @@ struct NodataException{};
 
 
 /** This attempts to look up the name dn with type dt. The depth parameter is for 
-    trace output. The multimap specifies the servers to try with. Defaults to a list of
+    trace output.
+    the 'auth' field describes the authority of the servers we will be talking to. Defaults to root ('believe everything')
+    The multimap specifies the servers to try with. Defaults to a list of
     root-servers.
 */
 
-vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const multimap<DNSName, ComboAddress>& servers=g_root)
+vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& servers=g_root)
 {
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
@@ -147,7 +149,8 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
   vector<std::unique_ptr<RRGen>> ret;
   // it is good form to sort the servers in order of response time
   // for tres, this is not done, but it would be good to randomize this a bit
-  
+
+  cout << prefix << "Starting query at authority = "<<auth<< ", have "<<servers.size() << " addresses to try"<<endl;
   for(auto& sp : servers) {
     ret.clear();
     ComboAddress server=sp.second;
@@ -161,8 +164,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
 
       DNSSection rrsection;
       uint32_t ttl;
-      
-      DNSName rrdn;
+      DNSName rrdn, newAuth;
       DNSType rrdt;
       
       dmr.getQuestion(rrdn, rrdt); // parse
@@ -203,12 +205,25 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
           if(dn == rrdn && rrdt == DNSType::CNAME) {
             DNSName target = dynamic_cast<CNAMEGen*>(rr.get())->d_name;
             cout << prefix<<"We got a CNAME to " << target <<", chasing"<<endl;
+
+            if(target.isPartOf(auth)) { // this points to something we consider this server auth for
+              cout << prefix << "target " << target << " is within " << auth<<", harvesting from packet"<<endl;
+              bool hadMatch=false;      // perhaps the answer is in this DNS message
+              while(dmr.getRR(rrsection, rrdn, rrdt, ttl, rr)) {
+                if(rrsection==DNSSection::Answer && rrdn == target && rrdt == dt) {
+                  hadMatch=true;
+                  ret.push_back(std::move(rr));
+                }
+              }
+              if(hadMatch) {            // if it worked, great, otherwise actual chase
+                cout << prefix << "in-message chase worked, we're done"<<endl;
+                return ret;
+              }
+              else
+                cout <<prefix<<"in-message chase not successful, will do new query for "<<target<<endl;
+            }
+                        
             return resolveAt(target, dt, depth + 1);
-            // note, this means we disregard any subsequent records carrying IP addresses
-            // for whatever your CNAME pointed at
-            // this leads to extra queries, but does make the security model simpler
-            // to know if we could have accepted that query would have meant keeping track of
-            // what we think your server is authoritative for exactly
           }
         }
         else {
@@ -220,6 +235,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
             if(dn.isPartOf(rrdn))  {
               DNSName nsname = dynamic_cast<NSGen*>(rr.get())->d_name;
               nsses.insert(nsname);
+              newAuth = rrdn;
             }
             else
               cout<< prefix << "Authoritative server gave us NS record to which this query does not belong" <<endl;
@@ -240,13 +256,14 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
         throw NodataException();
       }
       // we got a delegation
+      cout << prefix << "We got delegated to " << nsses.size() << " " << newAuth << " nameserver names " << endl;
       if(!addresses.empty()) {
         // in addresses are nameservers for which we have IP or IPv6 addresses
         cout << prefix<<"Have "<<addresses.size()<<" IP addresses to iterate to: ";
         for(const auto& p : addresses)
           cout << p.first <<"="<<p.second.toString()<<" ";
         cout <<endl;
-        auto res2=resolveAt(dn, dt, depth+1, addresses);
+        auto res2=resolveAt(dn, dt, depth+1, newAuth, addresses);
         if(!res2.empty())
           return res2;
         cout << prefix<<"The IP addresses we had did not provide a good answer"<<endl;
@@ -276,7 +293,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
           continue;
 
         // we have a new (set) of addresses to try
-        auto res2 = resolveAt(dn, dt, depth+1, newns);
+        auto res2 = resolveAt(dn, dt, depth+1, newAuth, newns);
         if(!res2.empty()) // it worked!
           return res2;
         // it didn't, let's move on to the next server
@@ -329,7 +346,6 @@ try
 
   DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
-
 
   auto res = resolveAt(dn, dt);
   cout<<"Result or query for "<< dn <<"|"<<toString(dt)<<endl;
