@@ -204,16 +204,29 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
             DNSName target = dynamic_cast<CNAMEGen*>(rr.get())->d_name;
             cout << prefix<<"We got a CNAME to " << target <<", chasing"<<endl;
             return resolveAt(target, dt, depth + 1);
+            // note, this means we disregard any subsequent records carrying IP addresses
+            // for whatever your CNAME pointed at
+            // this leads to extra queries, but does make the security model simpler
+            // to know if we could have accepted that query would have meant keeping track of
+            // what we think your server is authoritative for exactly
           }
         }
         else {
           // this picks up nameserver records, and we even believe your glue.. but ONLY for this query
-          // note that this should check if the NS records are even relevant for the query
           // from a security perspective, all an auth can do is ruin the result, since we don't cache
-          if(rrsection == DNSSection::Authority && rrdt == DNSType::NS)
-            nsses.insert(dynamic_cast<NSGen*>(rr.get())->d_name);
+          // if an auth serves confused glue, resolution will suffer
+          // (so in other words, if you have an out of zone NS record, we will believe your glue)
+          if(rrsection == DNSSection::Authority && rrdt == DNSType::NS) {
+            if(dn.isPartOf(rrdn))  {
+              DNSName nsname = dynamic_cast<NSGen*>(rr.get())->d_name;
+              nsses.insert(nsname);
+            }
+            else
+              cout<< prefix << "Authoritative server gave us NS record to which this query does not belong" <<endl;
+          }
           else if(rrsection == DNSSection::Additional && nsses.count(rrdn) && (rrdt == DNSType::A || rrdt == DNSType::AAAA)) {
-            addresses.insert({rrdn, getIP(rr)});
+            addresses.insert({rrdn, getIP(rr)}); // this only picks up addresses for NS records we've seen already
+                                                 // but that is ok: NS is in Authority section
           }
         }
       }
@@ -226,6 +239,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
         cout << prefix <<"No data response"<<endl;
         throw NodataException();
       }
+      // we got a delegation
       if(!addresses.empty()) {
         // in addresses are nameservers for which we have IP or IPv6 addresses
         cout << prefix<<"Have "<<addresses.size()<<" IP addresses to iterate to: ";
