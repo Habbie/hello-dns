@@ -15,6 +15,7 @@
 using namespace std;
 
 multimap<DNSName, ComboAddress> g_root;
+unsigned int g_numqueries;
 
 ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
 {
@@ -28,6 +29,7 @@ ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
   return ret;
 }
 
+struct TooManyQueriesException{};
 
 /** This function guarantees that you will get an answer from this server. It will drop EDNS for you
     and eventually it will even fall back to TCP for you. If nothing works, an exception is thrown.
@@ -44,7 +46,9 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
 
   bool doEDNS=true, doTCP=false;
 
-  for(int tries = 0; tries < 4 ; ++ tries) {
+  for(int tries = 0; tries < 4 ; ++tries) {
+    if(++g_numqueries > 30)
+      throw TooManyQueriesException();
     DNSMessageWriter dmw(dn, dt);
     dmw.dh.rd = false;
     dmw.randomizeID();
@@ -68,20 +72,25 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
       Socket sock(server.sin4.sin_family, SOCK_DGRAM);
       SConnect(sock, server);
       SWrite(sock, dmw.serialize());
-      double timeout=1;
+      double timeout=1.0;
       int err = waitForData(sock, &timeout);
+
+      // so one could simply retry on a timeout, but here we don't
       if( err <= 0) {
         throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+ (err ? string(strerror(errno)): string("Timeout")));
       }
       ComboAddress ign=server;
-      resp =SRecvfrom(sock, 65535, ign); 
+      resp = SRecvfrom(sock, 65535, ign); 
     }
     DNSMessageReader dmr(resp);
     if(dmr.dh.id != dmw.dh.id) {
       cout << prefix << "ID mismatch on answer" << endl;
       continue;
     }
-    
+    if(!dmr.dh.qr) {
+      cout << prefix << "What we received was not a response, ignoring"<<endl;
+      continue;
+    }
     if((RCode)dmr.dh.rcode == RCode::Formerr) {
       cout << prefix <<"Got a Formerr, resending without EDNS"<<endl;
       doEDNS=false;
@@ -102,6 +111,10 @@ struct NxdomainException{};
 struct NodataException{};
 
 
+/** This attempts to look up the name dn with type dt. The depth parameter is for 
+    trace output. The multimap specifies the servers to try with. Defaults to a list of
+    root-servers.
+*/
 
 vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const multimap<DNSName, ComboAddress>& servers=g_root)
 {
@@ -224,18 +237,24 @@ try
     cerr<<"Syntax: tres name type\n";
     return(EXIT_FAILURE);
   }
+
+  g_root = {{makeDNSName("a.root-servers.net"), ComboAddress("198.41.0.4", 53)},
+            {makeDNSName("f.root-servers.net"), ComboAddress("192.5.5.241", 53)},
+            {makeDNSName("k.root-servers.net"), ComboAddress("193.0.14.129", 53)},
+  };;
+  
   signal(SIGPIPE, SIG_IGN);
 
   DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
-  g_root = {{makeDNSName("k.root-servers.net"), ComboAddress("193.0.14.129", 53)}};;
+
 
   auto res = resolveAt(dn, dt);
   cout<<"Result: "<<endl;
   for(const auto& r : res) {
     cout<<r->toString()<<endl;
   }
-  
+  cout<<"Used "<<g_numqueries << " queries"<<endl;
 }
 catch(std::exception& e)
 {
