@@ -149,7 +149,12 @@ struct DNSName
   std::string toString() const;
   bool operator==(const DNSName& rhs) const
   {
-    return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end())==0;
+    return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end())==0 &&
+      std::lexicographical_compare(rhs.begin(), rhs.end(), begin(), end())==0;
+  }
+  bool operator<(const DNSName& rhs) const
+  {
+    return std::lexicographical_compare(begin(), end(), rhs.begin(), rhs.end());
   }
 
   std::deque<DNSLabel> d_name;
