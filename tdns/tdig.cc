@@ -49,7 +49,7 @@ try
 
   std::unique_ptr<RRGen> rr;
   while(dmr.getRR(rrsection, dn, dt, ttl, rr)) {
-    cout << dn<< " IN " << dt << " " << ttl << " " <<rr->toString()<<endl;
+    cout << rrsection<<" "<<dn<< " IN " << dt << " " << ttl << " " <<rr->toString()<<endl;
   }
 
 }
