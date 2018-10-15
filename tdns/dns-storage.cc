@@ -34,6 +34,9 @@ DNSName operator+(const DNSName& a, const DNSName& b)
 DNSName makeDNSName(const std::string& str)
 {
   DNSName ret;
+  if(str==".")
+    return ret;
+
   string part;
   for(const auto& c: str) {
     if(c=='.') {
