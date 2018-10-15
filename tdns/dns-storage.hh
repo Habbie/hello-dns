@@ -61,12 +61,12 @@ static_assert(sizeof(dnsheader) == 12, "dnsheader size must be 12");
 // enums
 enum class RCode 
 {
-  Noerror = 0, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5, Notauth = 9, Badvers=16
+  Noerror = 0, Formerr = 1, Servfail = 2, Nxdomain = 3, Notimp = 4, Refused = 5, Notauth = 9, Badvers=16
 };
 
 // this makes enums printable, which is nice
 SMARTENUMSTART(RCode)
-SENUM7(RCode, Noerror, Servfail, Nxdomain, Notimp, Refused, Notauth, Badvers)
+SENUM8(RCode, Noerror, Formerr, Servfail, Nxdomain, Notimp, Refused, Notauth, Badvers)
 SMARTENUMEND(RCode);
 
 //! Stores the type of a DNS query or resource record
