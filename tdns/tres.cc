@@ -3,8 +3,8 @@
 #include <map>
 #include <stdexcept>
 #include "sclasses.hh"
-#include <thread>
 #include <signal.h>
+#include <random>
 #include "record-types.hh"
 
 /*! 
@@ -141,16 +141,25 @@ struct NodataException{};
     root-servers.
 */
 
-vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& servers=g_root)
+vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& mservers=g_root)
 {
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
  
   vector<std::unique_ptr<RRGen>> ret;
   // it is good form to sort the servers in order of response time
-  // for tres, this is not done, but it would be good to randomize this a bit
+  // for tres, this is not done, but we do randomize
 
-  cout << prefix << "Starting query at authority = "<<auth<< ", have "<<servers.size() << " addresses to try"<<endl;
+  cout << prefix << "Starting query at authority = "<<auth<< ", have "<<mservers.size() << " addresses to try"<<endl;
+
+  vector<pair<DNSName, ComboAddress> > servers;
+  for(auto& sp : mservers) 
+    servers.push_back(sp);
+
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(servers.begin(), servers.end(), g);
+
   for(auto& sp : servers) {
     ret.clear();
     ComboAddress server=sp.second;
