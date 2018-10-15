@@ -30,7 +30,12 @@ ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
 
 
 /** This function guarantees that you will get an answer from this server. It will drop EDNS for you
-    and eventually it will even fall back to TCP for you. If nothing works, an exception is thrown
+    and eventually it will even fall back to TCP for you. If nothing works, an exception is thrown.
+    Note that this function does not think about actual DNS errors, you get those back verbatim.
+    Only the TC bit is checked.
+
+    This function does check if the ID field of the response matches the query, but the caller should
+    check qname and qtype.
 */
 DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth=0)
 {
@@ -41,12 +46,10 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
 
   for(int tries = 0; tries < 4 ; ++ tries) {
     DNSMessageWriter dmw(dn, dt);
-
-    
     dmw.dh.rd = false;
     dmw.randomizeID();
     if(doEDNS)
-      dmw.setEDNS(1000, true);
+      dmw.setEDNS(700, true);
     string resp;
     if(doTCP) {
       Socket sock(server.sin4.sin_family, SOCK_STREAM);
@@ -74,6 +77,11 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
       resp =SRecvfrom(sock, 65535, ign); 
     }
     DNSMessageReader dmr(resp);
+    if(dmr.dh.id != dmw.dh.id) {
+      cout << prefix << "ID mismatch on answer" << endl;
+      continue;
+    }
+    
     if((RCode)dmr.dh.rcode == RCode::Formerr) {
       cout << prefix <<"Got a Formerr, resending without EDNS"<<endl;
       doEDNS=false;
@@ -117,10 +125,11 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
       DNSType rrdt;
       
       dmr.getQuestion(rrdn, rrdt);
-      
       cout << prefix<<"Received response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
-      
-      // check rrdn == dn, rrdt == dt, transaction id
+      if(rrdn != dn || dt != rrdt) {
+        cout << prefix << "Got a response to a different question or different type than we asked for!"<<endl;
+        continue; // see if another server wants to work with us
+      }
 
       if((RCode)dmr.dh.rcode == RCode::Nxdomain) {
         cout << prefix<<"Got an Nxdomain, it does not exist"<<endl;
