@@ -39,6 +39,18 @@ TEST_CASE("DNSName operations", "[dnsname]") {
 
   REQUIRE(test2.makeRelative({"org"}));
   REQUIRE(test2 == DNSName({"www", "powerdns"}));
+
+  DNSName parent({"powerdns", "com"}), root({}), child({"www", "powerdns", "com"});
+  DNSName unrelated({"www", "isc", "org"});
+  DNSName Org({"Org"});
+  REQUIRE(parent.isPartOf(root));
+  REQUIRE(child.isPartOf(parent));
+  REQUIRE(child.isPartOf(root));
+  REQUIRE(!root.isPartOf(parent));
+  REQUIRE(!parent.isPartOf(child));
+  REQUIRE(!unrelated.isPartOf(child));
+  REQUIRE(!child.isPartOf(unrelated));
+  REQUIRE(unrelated.isPartOf(Org));
 }
 
 TEST_CASE("DNS Messages", "[dnsmessage]") {

@@ -21,6 +21,27 @@ bool DNSName::makeRelative(const DNSName& root)
   return true;
 }
 
+//! Checks is this DNSName is part of root
+bool DNSName::isPartOf(const DNSName& root) const
+{
+  auto them = root.d_name.crbegin(), us = d_name.crbegin();
+  for(;;) {
+    if(them == root.d_name.crend())
+      return true;
+    if(us == d_name.crend())
+      return false;
+    
+    if(*them == *us) {
+      ++them;
+      ++us;
+    }
+    else
+      break;
+  }
+  return false;
+}
+
+
 //! Append two DNSNames
 DNSName operator+(const DNSName& a, const DNSName& b)
 {

@@ -146,6 +146,7 @@ struct DNSName
   auto size() { return d_name.size(); }
   void clear() { d_name.clear(); }
   bool makeRelative(const DNSName& root);
+  bool isPartOf(const DNSName& root) const;
   std::string toString() const;
   bool operator==(const DNSName& rhs) const
   {
