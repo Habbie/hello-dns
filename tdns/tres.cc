@@ -1,4 +1,4 @@
-#include <cstdint>
+#include <fstream>
 #include <vector>
 #include <map>
 #include <stdexcept>
@@ -18,6 +18,8 @@ using namespace std;
 multimap<DNSName, ComboAddress> g_root;
 unsigned int g_numqueries;
 bool g_skipIPv6{false};  //!< set this if you have no functioning IPv6
+
+ofstream g_dot;
 
 /** Helper function that extracts a useable IP address from an
     A or AAAA resource record. Returns sin_family == 0 if it didn't work */
@@ -170,6 +172,29 @@ static auto randomizeServers(const multimap<DNSName, ComboAddress>& mservers)
   return servers;
 }
 
+static void dotQuery(const DNSName& auth, const DNSName& server)
+{
+  g_dot << '"' << auth << "\" -> \"" << server << "\"" << endl;
+}
+
+static void dotAnswer(const DNSName& dn, const DNSType& rrdt, const DNSName& server)
+{
+  g_dot <<"\"" << dn << "/"<<rrdt<<"\" [shape=box]\n";
+  g_dot << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\"\n";
+}
+
+static void dotCNAME(const DNSName& target, const DNSName& server, const DNSName& dn)
+{
+  g_dot << '"' << target << "\" [shape=box]"<<endl;
+  g_dot << '"' << server << "\" -> \"" << dn << "/CNAME\" -> \"" << target <<"\"\n";
+}
+
+static void dotDelegation(const DNSName& rrdn, const DNSName& server)
+{
+  g_dot << '"' << rrdn << "\" [shape=diamond]\n";
+  g_dot << '"' << server << "\" -> \"" << rrdn << "\"\n";
+}
+
 /** This attempts to look up the name dn with type dt. The depth parameter is for 
     trace output.
     the 'auth' field describes the authority of the servers we will be talking to. Defaults to root ('believe everything')
@@ -187,9 +212,10 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
   // for tres, this is not done (since we have no memory), but we do randomize:
 
   auto servers = randomizeServers(mservers);
-
   ResolveResult ret;
   for(auto& sp : servers) {
+    dotQuery(auth, sp.first);
+
     ret.clear();
     ComboAddress server=sp.second;
     server.sin4.sin_port = htons(53); // just to be sure
@@ -238,13 +264,14 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
         if(dmr.dh.aa==1) { // authoritative answer. We trust this.
           if(rrsection == DNSSection::Answer && dn == rrdn && dt == rrdt) {
             cout << prefix<<"We got an answer to our question!"<<endl;
+            dotAnswer(dn, rrdt, sp.first);
             ret.res.push_back({dn, ttl, std::move(rr)});
           }
-          if(dn == rrdn && rrdt == DNSType::CNAME) {
+          else if(dn == rrdn && rrdt == DNSType::CNAME) {
             DNSName target = dynamic_cast<CNAMEGen*>(rr.get())->d_name;
             ret.intermediate.push_back({dn, ttl, std::move(rr)}); // rr is DEAD now!
             cout << prefix<<"We got a CNAME to " << target <<", chasing"<<endl;
-
+            dotCNAME(target, sp.first, dn);
             if(target.isPartOf(auth)) { // this points to something we consider this server auth for
               cout << prefix << "target " << target << " is within " << auth<<", harvesting from packet"<<endl;
               bool hadMatch=false;      // perhaps the answer is in this DNS message
@@ -270,13 +297,15 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
           }
         }
         else {
-          // this picks up nameserver records, and we even believe your glue.. but ONLY for this query
-          // from a security perspective, all an auth can do is ruin the result, since we don't cache
-          // if an auth serves confused glue, resolution will suffer
-          // (so in other words, if you have an out of zone NS record, we will believe your glue)
+          // this picks up nameserver records. We check if glue records are within the authority
+          // of what we approached this server for.
           if(rrsection == DNSSection::Authority && rrdt == DNSType::NS) {
             if(dn.isPartOf(rrdn))  {
               DNSName nsname = dynamic_cast<NSGen*>(rr.get())->d_name;
+
+              if(!dmr.dh.aa && (newAuth != rrdn || nsses.empty())) {
+                dotDelegation(rrdn, sp.first);
+              }
               nsses.insert(nsname);
               newAuth = rrdn;
             }
@@ -284,8 +313,12 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
               cout<< prefix << "Authoritative server gave us NS record to which this query does not belong" <<endl;
           }
           else if(rrsection == DNSSection::Additional && nsses.count(rrdn) && (rrdt == DNSType::A || rrdt == DNSType::AAAA)) {
-            addresses.insert({rrdn, getIP(rr)}); // this only picks up addresses for NS records we've seen already
-                                                 // but that is ok: NS is in Authority section
+            // this only picks up addresses for NS records we've seen already
+            // but that is ok: NS is in Authority section
+            if(rrdn.isPartOf(auth)) 
+              addresses.insert({rrdn, getIP(rr)}); 
+            else
+              cout << prefix << "Not accepting IP address of " << rrdn <<": out of authority of this server"<<endl;
           }
         }
       }
@@ -468,7 +501,8 @@ try
   }
   
   // single shot operation
-  
+  g_dot.open("plot.dot");
+  g_dot << "digraph { "<<endl;
   DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
 
@@ -482,6 +516,8 @@ try
     cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
   }
   cout<<"Used "<<g_numqueries << " queries"<<endl;
+
+  g_dot << "}"<<endl;
 }
 catch(std::exception& e)
 {
