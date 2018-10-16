@@ -27,7 +27,7 @@ The goals of `tres` are:
  * Protocol correctness, except where the protocol needs updating
  * Suitable for educational purposes
  * Display best practices, both in DNS and security
- * **Be a living warning for how hard it is to write a resolved correctly**
+ * **Be a living warning for how hard it is to write a resolver correctly**
 
 Non-goals are:
 
