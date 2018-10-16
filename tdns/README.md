@@ -808,9 +808,6 @@ $ dig -t any time.powerdns.org @::1 -p 5300 +short
 time.powerdns.org.	3600	IN	TXT	"The time is Fri, 13 Apr 2018 12:55:54 +0200"
 ```
 
-For now, building requires the Boost headers, because of the Simplesocket
-dependency.
-
 <script>
 window.markdeepOptions={};
 window.markdeepOptions.tocStyle = "long";
