@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <random>
 #include "record-types.hh"
+#include <thread>
 
 /*! 
    @file
@@ -52,7 +53,7 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
   bool doEDNS=true, doTCP=false;
 
   for(int tries = 0; tries < 4 ; ++tries) {
-    if(++g_numqueries > 30) // there is the possibility our algorithm will loop
+    if(++g_numqueries > 300) // there is the possibility our algorithm will loop
       throw TooManyQueriesException(); // and send out thousands of queries, so let's not
 
     DNSMessageWriter dmw(dn, dt);
@@ -133,6 +134,22 @@ struct NxdomainException{};
 //! Or if your type does not exist
 struct NodataException{};
 
+struct ResolveRR
+{
+  DNSName name;
+  uint32_t ttl;
+  std::unique_ptr<RRGen> rr;
+};
+struct ResolveResult
+{
+  vector<ResolveRR> res;
+  vector<ResolveRR> intermediate;
+  void clear()
+  {
+    res.clear();
+    intermediate.clear();
+  }
+};
 
 /** This attempts to look up the name dn with type dt. The depth parameter is for 
     trace output.
@@ -141,16 +158,14 @@ struct NodataException{};
     root-servers.
 */
 
-vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& mservers=g_root)
+ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& mservers=g_root)
 {
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
- 
-  vector<std::unique_ptr<RRGen>> ret;
-  // it is good form to sort the servers in order of response time
-  // for tres, this is not done, but we do randomize
-
   cout << prefix << "Starting query at authority = "<<auth<< ", have "<<mservers.size() << " addresses to try"<<endl;
+  
+  // it is good form to sort the servers in order of response time
+  // for tres, this is not done (since we have no memory), but we do randomize:
 
   vector<pair<DNSName, ComboAddress> > servers;
   for(auto& sp : mservers) 
@@ -160,6 +175,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
   std::mt19937 g(rd());
   std::shuffle(servers.begin(), servers.end(), g);
 
+  ResolveResult ret;
   for(auto& sp : servers) {
     ret.clear();
     ComboAddress server=sp.second;
@@ -209,10 +225,12 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
         if(dmr.dh.aa==1) {
           if(dn == rrdn && dt == rrdt) {
             cout << prefix<<"We got an answer to our question!"<<endl;
-            ret.push_back(std::move(rr));
+            ret.res.push_back({dn, ttl, std::move(rr)});
           }
           if(dn == rrdn && rrdt == DNSType::CNAME) {
+
             DNSName target = dynamic_cast<CNAMEGen*>(rr.get())->d_name;
+            ret.intermediate.push_back({dn, ttl, std::move(rr)}); // rr is DEAD now!
             cout << prefix<<"We got a CNAME to " << target <<", chasing"<<endl;
 
             if(target.isPartOf(auth)) { // this points to something we consider this server auth for
@@ -221,7 +239,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
               while(dmr.getRR(rrsection, rrdn, rrdt, ttl, rr)) {
                 if(rrsection==DNSSection::Answer && rrdn == target && rrdt == dt) {
                   hadMatch=true;
-                  ret.push_back(std::move(rr));
+                  ret.res.push_back({dn, ttl, std::move(rr)});
                 }
               }
               if(hadMatch) {            // if it worked, great, otherwise actual chase
@@ -232,7 +250,11 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
                 cout <<prefix<<"in-message chase not successful, will do new query for "<<target<<endl;
             }
                         
-            return resolveAt(target, dt, depth + 1);
+            auto chaseres=resolveAt(target, dt, depth + 1);
+            ret.res = std::move(chaseres.res);
+            for(auto& rr : chaseres.intermediate)   // add up their intermediates
+              ret.intermediate.push_back(std::move(rr)); 
+            return ret;
           }
         }
         else {
@@ -255,9 +277,9 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
           }
         }
       }
-      if(!ret.empty()) {
+      if(!ret.res.empty()) {
         // the answer is in!
-        cout << prefix<<"Done, returning "<<ret.size()<<" results\n";
+        cout << prefix<<"Done, returning "<<ret.res.size()<<" results, "<<ret.intermediate.size()<<" intermediate\n";
         return ret;
       }
       else if(dmr.dh.aa) {
@@ -273,7 +295,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
           cout << p.first <<"="<<p.second.toString()<<" ";
         cout <<endl;
         auto res2=resolveAt(dn, dt, depth+1, newAuth, addresses);
-        if(!res2.empty())
+        if(!res2.res.empty())
           return res2;
         cout << prefix<<"The IP addresses we had did not provide a good answer"<<endl;
       }
@@ -288,9 +310,9 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
         for(const DNSType& qtype : {DNSType::A, DNSType::AAAA}) {
           try {
             auto result = resolveAt(name, qtype, depth+1);
-            cout << prefix<<"Got "<<result.size()<<" nameserver IPv4 addresses, adding to list"<<endl;
-            for(const auto& res : result)
-              newns.insert({name, getIP(res)});
+            cout << prefix<<"Got "<<result.res.size()<<" nameserver IPv4 addresses, adding to list"<<endl;
+            for(const auto& res : result.res)
+              newns.insert({name, getIP(res.rr)});
           }
           catch(...)
           {
@@ -303,7 +325,7 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
 
         // we have a new (set) of addresses to try
         auto res2 = resolveAt(dn, dt, depth+1, newAuth, newns);
-        if(!res2.empty()) // it worked!
+        if(!res2.res.empty()) // it worked!
           return res2;
         // it didn't, let's move on to the next server
       }
@@ -316,11 +338,61 @@ vector<std::unique_ptr<RRGen>> resolveAt(const DNSName& dn, const DNSType& dt, i
   return ret;
 }
 
+void processQuery(int sock, ComboAddress client, DNSMessageReader dmr)
+try
+{
+  g_numqueries = 0;
+  DNSName dn;
+  DNSType dt;
+  dmr.getQuestion(dn, dt);
+
+  DNSMessageWriter dmw(dn, dt);
+  dmw.dh.rd = dmr.dh.rd;
+  dmw.dh.ra = true;
+  dmw.dh.qr = true;
+  dmw.dh.id = dmr.dh.id;
+
+  ResolveResult res;
+  try {
+    res = resolveAt(dn, dt);
+    cout<<"Result or query for "<< dn <<"|"<<toString(dt)<<endl;
+    for(const auto& r : res.intermediate) {
+      cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" " << r.rr->toString()<<endl;
+    }
+    
+    for(const auto& r : res.res) {
+    cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
+    }
+  }
+  catch(NodataException& nd)
+  {
+    SSendto(sock, dmw.serialize(), client);
+    return;
+  }
+  catch(NxdomainException& nx)
+  {
+    dmw.dh.rcode = (int)RCode::Nxdomain;
+    SSendto(sock, dmw.serialize(), client);
+    return;
+  }
+  for(const auto& rr : res.intermediate)
+    dmw.putRR(DNSSection::Answer, rr.name, rr.ttl, rr.rr);
+  for(const auto& rr : res.res)
+    dmw.putRR(DNSSection::Answer, rr.name, rr.ttl, rr.rr);
+  string resp = dmw.serialize();
+  SSendto(sock, resp, client);
+}
+catch(exception& e)
+{
+  cerr << "Thread died: " << e.what() << endl;
+}
+
 int main(int argc, char** argv)
 try
 {
-  if(argc != 3) {
+  if(argc != 2 && argc != 3) {
     cerr<<"Syntax: tres name type\n";
+    cerr<<"Syntax: tres ip:port\n";
     return(EXIT_FAILURE);
   }
   signal(SIGPIPE, SIG_IGN); // TCP, so we need this
@@ -330,7 +402,7 @@ try
                                            {makeDNSName("k.root-servers.net"), ComboAddress("193.0.14.129", 53)},
   };
 
-  // retrieve the actual live NSSET from the hints
+  // retrieve the actual live root NSSET from the hints
   for(const auto& h : hints) {
     try {
       DNSMessageReader dmr = getResponse(h.second, makeDNSName("."), DNSType::NS);
@@ -353,13 +425,45 @@ try
 
   cout<<"Retrieved . NSSET from hints, have "<<g_root.size()<<" addresses"<<endl;
 
+
+  if(argc == 2) {
+    ComboAddress local(argv[1]);
+    Socket sock(local.sin4.sin_family, SOCK_DGRAM);
+    SBind(sock, local);
+    string packet;
+    ComboAddress client;
+    
+    for(;;) {
+      try {
+        packet = SRecvfrom(sock, 1500, client);
+        cout<<"Received packet from "<< client.toStringWithPort() << endl;
+        DNSMessageReader dmr(packet);
+        if(dmr.dh.qr) {
+          cout << "Packet from " << client.toStringWithPort()<< " was not a query"<<endl;
+          continue;
+        }
+        std::thread t(processQuery, (int)sock, client, dmr);
+        t.detach();
+      }
+      catch(exception& e) {
+        cout << "Processing packet from " << client.toStringWithPort() <<": "<<e.what() << endl;
+      }
+    }
+  }
+  
+  // single shot operation
+  
   DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
 
   auto res = resolveAt(dn, dt);
   cout<<"Result or query for "<< dn <<"|"<<toString(dt)<<endl;
-  for(const auto& r : res) {
-    cout<<r->toString()<<endl;
+  for(const auto& r : res.intermediate) {
+    cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" " << r.rr->toString()<<endl;
+  }
+
+  for(const auto& r : res.res) {
+    cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
   }
   cout<<"Used "<<g_numqueries << " queries"<<endl;
 }
