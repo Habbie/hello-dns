@@ -36,15 +36,14 @@ Non-goals are:
  * DNSSEC
  * Resolving domains that are broken.
 
-
 A more narrative explanation of what `tdns` is and what we hope it will
 achieve can be found [here](intro.md.html).
 
 # Current status
-`tres` can be used to browse the web successfully. All popular domains work.
-The code is not quite in a teachable state yet and still contains ugly bits. 
-But well worth [a
-read](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).
+`tres` can be used to browse the web successfully.  All popular domains
+work.  The code is not quite in a teachable state yet and still contains
+some ugly bits.  But well worth [a
+read](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/tres.cc).
 
 # Infrastructure
 `tres` uses the same DNS packet parsing/generating code as the `tdns`
@@ -75,9 +74,14 @@ addresses.
 generally succeeds. If it doesn't the resolving algorithm itself is used to
 resolve addresses of the nameserver names we do have.
 
-`tres` will believe your glue records, which is ok because they are not
-cached. If an authoritative server provides incorrect out-of-zone glue, we
-will happily use it.
+## Trace output
+When run in single-shot mode (ie, `./tres www.powerdns.org A`), a file
+called `plot.dot` is created. Using `graphviz`, this can be turned into a
+pretty diagram like this:
+
+```
+dot -Tpng plot.dot > plot.png
+```
 
 # Further details
 The `tres` source code is less than 500 lines of code, so it is suggested to
