@@ -90,11 +90,9 @@ This requires a recent compiler version that supports C++ 2014. If you
 encounter problems, please let me know (see above for address details).
 
 ```
-$ git clone https://github.com/ahupowerdns/hello-dns.git
+$ git clone --recursive https://github.com/ahupowerdns/hello-dns.git
 $ cd hello-dns/tdns
-$ git submodule init
-$ git submodule update
-$ make
+$ make -j4 tres
 $ ./tres www.powerdns.org A
 ...
 Result or query for www.powerdns.org.|A
