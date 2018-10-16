@@ -52,6 +52,38 @@ authoritative server. For details, please see [its
 documentation](README.md.html). 
 
 # Algorithm
+`tres` implements a straightforward resolving algorithm. 
+
+## Hints
+Resolvers should come with a list of nameserver IP addresses that function
+as 'hints'. The idea is that if at least one of the hint IP addresses is
+still in operation, the full set of Internet root-servers can be retrieved.
+
+`tres` has its hints compiled in. Customarily, resolvers are expected to be
+able to read hints from a file at startup.
+
+`tres` asks the hint IP addresses for the NS records for the root zone, and
+expects to receive A and AAAA records for the root-servers in return. 
+
+## Resolving names
+To resolve a name (for a given type), a query for it is sent to the root
+servers. These will in general not know the answer, but will provide a
+delegation to other nameservers, typically with glue that provides IP
+addresses.
+
+`tres` will try to use that glue to follow the delegation, and this
+generally succeeds. If it doesn't the resolving algorithm itself is used to
+resolve addresses of the nameserver names we do have.
+
+`tres` will believe your glue records, which is ok because they are not
+cached. If an authoritative server provides incorrect out-of-zone glue, we
+will happily use it.
+
+# Further details
+The `tres` source code is less than 500 lines of code, so it is suggested to
+read it from [beginning to end](tres.cc). The code may make more sense after
+first having studied the inner workings of the `tdns` authoritative server,
+which is described [here](README.md.html).
 
 # Compiling and running tres
 This requires a recent compiler version that supports C++ 2014. If you
