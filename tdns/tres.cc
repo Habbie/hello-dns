@@ -457,7 +457,7 @@ try
   DNSType dt = makeDNSType(argv[2]);
 
   auto res = resolveAt(dn, dt);
-  cout<<"Result or query for "<< dn <<"|"<<toString(dt)<<endl;
+  cout<<"Result of query for "<< dn <<"|"<<toString(dt)<<endl;
   for(const auto& r : res.intermediate) {
     cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" " << r.rr->toString()<<endl;
   }
