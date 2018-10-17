@@ -23,10 +23,11 @@ good care to fully randomize source port and ID fields. It must also guard
 against sending out multiple equivalent queries at the same time as this
 would allow a 'birthday attack' that could spoof in harmful answers.
 
-If a resolver sends out two different questions in parallel, like for A and
-AAAA of a name, it should be prepared to receive responses out of order.
-
 It is also important to actually test the TC=1 response path, something that
 may be triggered when sending queries that lead to huge answers.
+
+If a resolver sends out two different questions in parallel, like for A and
+AAAA of a name, it should be prepared to receive responses out of order -
+even over TCP!
 
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="ext/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>

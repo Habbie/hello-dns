@@ -1,20 +1,22 @@
                 <meta charset="utf-8" emacsmode="-*- markdown -*-">
                             **A warm welcome to DNS**
-<link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">
+<!-- <link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">
+-->
 
 Note: this page is part of the
 '[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
-# DNS Basics
 In this section we will initially ignore optional extensions that were added
 to DNS later, specifically EDNS and DNSSEC.
 
 This file corresponds roughly to the fundamental parts of RFCs 1034, 1035,
 2181, 2308, 3596, 4343, 5452, 6604, 7766 and 8020.
 
-**This file, which describes DNS basics, absolutely must be read from
+**This page, which describes DNS basics, absolutely must be read from
 beginning to end in order for the rest of the documents (or DNS) to make
 sense.**
+
+# DNS Basics
 
 DNS is mostly used to serve IP addresses and mailserver details, but it can
 contain arbitrary data.  DNS is all about names.  Every name can have data

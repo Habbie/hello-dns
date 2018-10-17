@@ -1,7 +1,8 @@
                 <meta charset="utf-8" emacsmode="-*- markdown -*-">
                             **A warm welcome to DNS**
 
-<link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">
+<!-- <link rel="stylesheet" href="https://casual-effects.com/markdeep/latest/apidoc.css?">
+-->
 
 Note: this page is part of the
 '[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
