@@ -4,7 +4,7 @@
 # EDNS, Dynamic Updates, TSIG, DNAME, DNS Cookies & more
 So far we've focussed on the simplest possible form of DNS that is
 interoperable with today's internet. Over the past 3 decades however, a lot
-has been added to DNS however.
+has been added to DNS.
 
 Items relevant for authoritative servers and resolvers:
 
@@ -12,7 +12,7 @@ Items relevant for authoritative servers and resolvers:
    including arbitrary options. The main use of EDNS today is specifying a
    larger supported UDP packet size, indicating DNSSEC support and carrying
    Client Subnet information. Defined in [RFC
-   6891](https://tools.ietf.org/html/rfc2671).
+   6891](https://tools.ietf.org/html/rfc6891).
  * EDNS Client Subnet: Convey (part) of client addresses to authoritative 
    resolvers. Defined in [RFC 7871](https://tools.ietf.org/html/rfc7871).
  * DNAME: Domain redirection [RFC 6672](https://tools.ietf.org/html/rfc6672)
@@ -26,7 +26,7 @@ Relevant for authoritative servers:
  * TSIG: Secret Key Transaction Authentication for DNS. A way to sign DNS
    messages or a list of DNS messages with a secret key. Used to authenticate
    AXFR requests and to guarantee zone integrity during AXFR. Defined in
-   [RFC 2845](https://tools.ietf.org/html/rfc2136).
+   [RFC 2845](https://tools.ietf.org/html/rfc2845).
 
 
 ## Extended DNS (EDNS or EDNS(0))
