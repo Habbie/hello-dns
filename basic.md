@@ -36,7 +36,7 @@ A DNS message has:
  * An authority section
  * An additional section
 
-In basic DNS, query messages should have empty answer, authority or
+In basic DNS, query messages should have empty answer, authority and
 additional sections.
 
 The header has the following fields that are useful for queries and
@@ -202,7 +202,7 @@ In addition, ANCOUNT is now set to '1', indicating a single answer is to be
 found in the message, immediately after the original question, which has been
 repeated from the query message.
 
-To recognize the right response, check that the ID field is the same as the
+To recognize the right response, check that the ID field is the same as in the
 query, make sure the answer arrives on the right source port and that the
 query name and type match up with the original query. In addition, make sure
 not to send out more than one equivalent query when still waiting for the
@@ -280,7 +280,7 @@ these sections later.
 ## RRSETs
 In the example above, the question for the AAAA record of 'www.ietf.org' had
 exactly one corresponding resource record. In a human readable 'zone file',
-this would stored as:
+this would be stored as:
 
 ```
 www.ietf.org	IN	AAAA	3600	2400:cb00:2048:1::6814:55
@@ -495,7 +495,7 @@ response with AA=0, indicating that the 'org' servers know they aren't
 
 ### Glue records
 The astute reader will have spotted a chicken and egg problem here.  If
-ns1.ietf.org is the nameserver for ietf.org..  where do we get the IP
+ns1.ietf.org is the nameserver for ietf.org... where do we get the IP
 address of ns1.ietf.org?
 
 To solve this problem, the parent zone can provide a free chicken. In the
@@ -535,7 +535,7 @@ www	IN	CNAME	www.ietf.org.cdn.cloudflare.net.
 
 This is frequently used to redirect to a Content Distribution Network. The
 CNAME is for a name, and not for a type. This means that *any* query for
-www.ietf.org is sent to cloudflare. This simultaneously means that what
+www.ietf.org is sent to Cloudflare. This simultaneously means that what
 everyone wants is impossible:
 
 ```
@@ -568,7 +568,7 @@ A query for the A record of 'smtp.ietf.org' will return 192.0.2.222. A query
 for 'www.ietf.org' however will return 192.0.2.1.
 
 Interestingly, as another example of how DNS really is a tree, a query for
-the AAAA record of smtp.ietf.org will return..  nothing.  This is because
+the AAAA record of smtp.ietf.org will return... nothing.  This is because
 the node 'smtp.ietf.org' does exist, and processing ends there.  The
 wildcard match will not proceed to the '*' entry.
 
@@ -650,8 +650,8 @@ server is supposed to prefer. This list becomes a lot simpler when split up
 between pure authoritative and pure resolver functions.
 
 ### RFC 2308: "Negative caching of DNS Queries (NCACHE)
-This [rfc](https://tools.ietf.org/html/rfc2308) describes how negative
-responses are to be cached. The details matter for both authoritative and
+This [RFC](https://tools.ietf.org/html/rfc2308) describes how negative
+responses are to be cached. The details matter for both authoritative servers and
 resolvers. Of specific note are the parts that dwell on CNAME chains which
 lead to a 'no data' or 'NXDOMAIN' situation.
 
@@ -659,7 +659,7 @@ As with 2181, this RFC speaks about an earlier version of DNSSEC, and these
 parts should be fully ignored.
 
 ### RFC 3596: "DNS Extensions to Support IP Version 6"
-This [rfc](https://tools.ietf.org/html/rfc3596) describes the AAAA record,
+This [RFC](https://tools.ietf.org/html/rfc3596) describes the AAAA record,
 which is core to DNS as it is required to look up addresses of nameservers.
 
 ### RFC 4343: "Domain Name System Case Insensitivity Clarification"
@@ -683,7 +683,7 @@ an earlier version of DNAMEs, these parts are best ignored in lieu of
 
 ### RFC 7766: DNS Transport over TCP - Implementation Requirements
 [This RFC](https://tools.ietf.org/html/rfc7766.txt) updates 1034/1035 to
-state that TCP is a mandatory part of DNS and a first class citizen It also
+state that TCP is a mandatory part of DNS and a first class citizen. It also
 updates timeout rules, recommending rather brief timeouts compared to the
 'minutes' noted in the original DNS standard.
 

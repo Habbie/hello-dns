@@ -67,12 +67,12 @@ laid out. This part is required reading for anyone ever wanting to query a
 nameserver or emit a valid response.
 
 We then specialize into what applications can expect when they send
-questions to a resolver, or what a stub-resolver can expect.
+questions to a resolver, or what a stub resolver can expect.
 
 The next part is about what an authoritative server is supposed to do. On
 top of this, we describe in slightly less detail how a resolver could
 operate. Finally, there is a section on optional elements like EDNS, TSIG,
-Dynamic Updates and DNSSEC
+Dynamic Updates and DNSSEC.
 
 RFCs, especially earlier ones, tend to describe servers that perform both
 authoritative and resolver functions. This turns out to make both code and

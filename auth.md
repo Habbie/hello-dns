@@ -10,7 +10,7 @@ Note: this page is part of the
 
 The basics of DNS Authoritative operation have already been described in the
 [Basic DNS](index.html) document.  In this file, we delve deeper into zone
-transfers and and notifications.
+transfers and notifications.
 
 This document covers RFCs 1982, 1995, 1996 (all three related to zone
 transfers), 4592 (Wildcards), 5936 (again zone transfers) and 7766 (TCP).
@@ -96,7 +96,7 @@ that are only applicable to resolvers, with new instructions in **bold**.
        if the addresses are not available from authoritative  
        data ~~or the cache~~.  Go to step 4.  
     3. If at some label, a match is impossible (i.e., the  
-       corresponding label does not exist), look to see if a  
+       corresponding label does not exist), look to see if
        the * label exists.
        If the * label does not exist, check whether the name  
        we are looking for is the original QNAME in the query  
@@ -127,7 +127,7 @@ This is effectively the same thing but implemented on a regular key/value
 lookup engine.
 
 ## Wildcards
-The algorithm as described in the previous session does mention wildcards,
+The algorithm as described in the previous section does mention wildcards,
 but not in great detail, and not coherently. [RFC
 4592](https://tools.ietf.org/html/rfc4592) by comparison discusses wildcards
 in exhaustive detail. 
