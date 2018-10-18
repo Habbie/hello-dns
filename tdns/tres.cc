@@ -174,13 +174,14 @@ static auto randomizeServers(const multimap<DNSName, ComboAddress>& mservers)
 
 static void dotQuery(const DNSName& auth, const DNSName& server)
 {
-  g_dot << '"' << auth << "\" -> \"" << server << "\"" << endl;
+  g_dot << '"' << auth << "\" [shape=diamond]\n";
+  g_dot << '"' << auth << "\" -> \"" << server << "\" [ label = \" " << g_numqueries<<"\"]" << endl;
 }
 
 static void dotAnswer(const DNSName& dn, const DNSType& rrdt, const DNSName& server)
 {
   g_dot <<"\"" << dn << "/"<<rrdt<<"\" [shape=box]\n";
-  g_dot << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\"\n";
+  g_dot << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\""<<endl;
 }
 
 static void dotCNAME(const DNSName& target, const DNSName& server, const DNSName& dn)
@@ -192,7 +193,7 @@ static void dotCNAME(const DNSName& target, const DNSName& server, const DNSName
 static void dotDelegation(const DNSName& rrdn, const DNSName& server)
 {
   g_dot << '"' << rrdn << "\" [shape=diamond]\n";
-  g_dot << '"' << server << "\" -> \"" << rrdn << "\"\n";
+  g_dot << '"' << server << "\" -> \"" << rrdn << "\"" <<endl;
 }
 
 /** This attempts to look up the name dn with type dt. The depth parameter is for 
@@ -207,13 +208,14 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
   cout << prefix << "Starting query at authority = "<<auth<< ", have "<<mservers.size() << " addresses to try"<<endl;
-  
+
+  ResolveResult ret;
   // it is good form to sort the servers in order of response time
   // for tres, this is not done (since we have no memory), but we do randomize:
 
   auto servers = randomizeServers(mservers);
-  ResolveResult ret;
-  for(auto& sp : servers) {
+
+  for(auto& sp : servers) {      
     dotQuery(auth, sp.first);
 
     ret.clear();
@@ -347,9 +349,12 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
 
       // well we could not make it work using the servers we had addresses for. Let's try
       // to get addresses for the rest
-      cout << prefix<<"Don't have a resolved nameserver to ask anymore, trying from "<<nsses.size()<<" unresolved names"<<endl;
-
-      for(const auto& name: nsses) {
+      cout << prefix<<"Don't have a resolved nameserver to ask anymore, trying to resolve "<<nsses.size()<<" names"<<endl;
+      vector<DNSName> rnsses;
+      for(const auto& name: nsses) 
+        rnsses.push_back(name);
+      std::random_shuffle(rnsses.begin(), rnsses.end());
+      for(const auto& name: rnsses) {
         multimap<DNSName, ComboAddress> newns;
         cout << prefix<<"Attempting to resolve NS "<<name<<endl;
         for(const DNSType& qtype : {DNSType::A, DNSType::AAAA}) {
@@ -507,7 +512,7 @@ try
   DNSType dt = makeDNSType(argv[2]);
 
   auto res = resolveAt(dn, dt);
-  cout<<"Result of query for "<< dn <<"|"<<toString(dt)<<endl;
+  cout<<"Result of query for "<< dn <<"|"<<toString(dt)<< " ("<<res.intermediate.size()<<" intermediate, "<<res.res.size()<<" actual)\n";
   for(const auto& r : res.intermediate) {
     cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" " << r.rr->toString()<<endl;
   }
@@ -521,16 +526,21 @@ try
 }
 catch(std::exception& e)
 {
-  cerr<<"Fatal error: "<<e.what()<<endl;
+  cerr<<argv[1]<<": fatal error: "<<e.what()<<endl;
   return EXIT_FAILURE;
 }
 catch(NxdomainException& e)
 {
-  cout<<"Name does not exist"<<endl;
+  cout<<argv[1]<<": name does not exist"<<endl;
   return EXIT_FAILURE;
 }
 catch(NodataException& e)
 {
-  cout<<"Name does not have datatype requested"<<endl;
+  cout<<argv[1]<< ": name does not have datatype requested"<<endl;
+  return EXIT_FAILURE;
+}
+catch(TooManyQueriesException& e)
+{
+  cout<<argv[1]<< ": exceeded maximum number of queries"<<endl;
   return EXIT_FAILURE;
 }
