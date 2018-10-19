@@ -446,6 +446,12 @@ try
   if(argc != 2 && argc != 3) {
     cerr<<"Syntax: tres name type\n";
     cerr<<"Syntax: tres ip:port\n";
+    cerr<<"\n";
+    cerr<<"When name and type are specified, tres looks up a DNS record.\n";
+    cerr<<"types: A, NS, CNAME, SOA, PTR, MX, TXT, AAAA, ...\n";
+    cerr<<"       see https://en.wikipedia.org/wiki/List_of_DNS_record_types\n";
+    cerr<<"\n";
+    cerr<<"When ip:port is specified, tres acts as a DNS server.\n";
     return(EXIT_FAILURE);
   }
   signal(SIGPIPE, SIG_IGN); // TCP, so we need this
