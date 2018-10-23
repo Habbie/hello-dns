@@ -353,31 +353,37 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
       vector<DNSName> rnsses;
       for(const auto& name: nsses) 
         rnsses.push_back(name);
-      std::random_shuffle(rnsses.begin(), rnsses.end());
+      std::random_device rd;
+      std::mt19937 g(rd());
+      std::shuffle(rnsses.begin(), rnsses.end(), g);
+
       for(const auto& name: rnsses) {
-        multimap<DNSName, ComboAddress> newns;
-        cout << prefix<<"Attempting to resolve NS "<<name<<endl;
         for(const DNSType& qtype : {DNSType::A, DNSType::AAAA}) {
+          multimap<DNSName, ComboAddress> newns;
+          cout << prefix<<"Attempting to resolve NS " <<name<< "|"<<qtype<<endl;
+
           try {
             auto result = resolveAt(name, qtype, depth+1);
             cout << prefix<<"Got "<<result.res.size()<<" nameserver " << qtype <<" addresses, adding to list"<<endl;
             for(const auto& res : result.res)
               newns.insert({name, getIP(res.rr)});
+            cout << prefix<<"We now have "<<newns.size()<<" resolved " << qtype<<" addresses to try"<<endl;
+            if(newns.empty())
+              continue;
           }
           catch(...)
           {
             cout << prefix <<"Failed to resolve name for "<<name<<"|"<<qtype<<endl;
+            continue;
           }
+          // we have a new (set) of addresses to try
+          auto res2 = resolveAt(dn, dt, depth+1, newAuth, newns);
+          if(!res2.res.empty()) // it worked!
+            return res2;
+          // this could throw an NodataException or a NxdomainException, and we should let that fall through
+          // it didn't, let's move on to the next server
+            
         }
-        cout << prefix<<"We now have "<<newns.size()<<" resolved addresses to try"<<endl;
-        if(newns.empty())
-          continue;
-
-        // we have a new (set) of addresses to try
-        auto res2 = resolveAt(dn, dt, depth+1, newAuth, newns);
-        if(!res2.res.empty()) // it worked!
-          return res2;
-        // it didn't, let's move on to the next server
       }
     }
     catch(std::exception& e) {
