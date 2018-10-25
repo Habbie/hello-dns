@@ -40,6 +40,9 @@ Non-goals are:
 A more narrative explanation of what `tdns` is and what we hope it will
 achieve can be found [here](intro.md.html).
 
+The code for `tdns` can be found on [GitHub](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/) and is also documented 
+using [Doxygen](codedocs/html).
+
 # Objects in `tdns`
 These are found in [dns-storage.hh](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dns-storage.hh)
 and
