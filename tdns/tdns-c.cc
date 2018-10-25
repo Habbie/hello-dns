@@ -4,6 +4,7 @@
 #include "swrappers.hh"
 #include "sclasses.hh"
 #include <memory>
+#include <fstream>
 using namespace std;
 
 namespace {
@@ -20,8 +21,7 @@ struct TDNSCleanUp
     delete vec;
   }
 };
-
-
+ 
 DNSMessageReader getDNSResponse(Socket& sock, const DNSName& dn, const DNSType& dt)
 {
 
@@ -37,9 +37,8 @@ DNSMessageReader getDNSResponse(Socket& sock, const DNSName& dn, const DNSType& 
 
 }
 
-Socket makeResolverSocket()
+Socket makeResolverSocket(const ComboAddress& server)
 {
-  ComboAddress server("192.168.1.91", 53);
   Socket sock(server.sin4.sin_family, SOCK_DGRAM);
   SConnect(sock, server);
   return sock;
@@ -47,6 +46,61 @@ Socket makeResolverSocket()
 }
 
 extern "C" {
+
+struct TDNSContext
+{
+  std::vector<ComboAddress> servers;
+};
+
+struct TDNSContext* TDNSMakeContext (const char* servers)
+{
+  auto ret = std::make_unique<TDNSContext>();
+
+  if(!servers || !*servers) {
+    ifstream ifs("/etc/resolv.conf");
+
+    if(!ifs) 
+      return 0;
+    string line;    
+    while(std::getline(ifs, line)) {
+      auto pos = line.find_last_not_of(" \r\n\x1a");
+      if(pos != string::npos)
+        line.resize(pos+1);
+      pos = line.find_first_not_of(" \t");
+      if(pos != string::npos)
+        line = line.substr(pos);
+
+      pos = line.find_first_of(";#");
+      if(pos != string::npos)
+        line.resize(pos);
+      
+      if(line.rfind("nameserver ", 0)==0 || line.rfind("nameserver\t", 0) == 0) {
+        pos = line.find_first_not_of(" ", 11);
+        if(pos != string::npos) {
+          try {
+            ret->servers.push_back(ComboAddress(line.substr(pos), 53));
+          }
+          catch(...)
+            {}
+        }
+      }
+    }
+  }
+  else {
+    ret->servers.push_back(ComboAddress(servers, 53));
+  }
+  if(ret->servers.empty()) {
+    return 0;
+  }
+  auto ptr = ret.get();
+  ret.release();
+  return ptr;
+}
+
+void freeTDNSContext(struct TDNSContext* tdc)
+{
+  delete tdc;
+}
 const char* TDNSErrorMessage(int err)
 {
   static const char *errors[]={"No error", "Timeout", "Server failure", "No such domain", "Unknown error"};
@@ -65,10 +119,9 @@ void freeTDNSIPAddresses(struct TDNSIPAddresses*vec)
   delete vec;
 }
 
-int TDNSLookupIPs(const char* name, int timeoutMsec, int lookupIPv4, int lookupIPv6,  struct TDNSIPAddresses** ret)
+int TDNSLookupIPs(TDNSContext* context, const char* name, int timeoutMsec, int lookupIPv4, int lookupIPv6,  struct TDNSIPAddresses** ret)
 {
-  Socket sock = makeResolverSocket();
-
+  Socket sock = makeResolverSocket(context->servers[0]);
   vector<DNSType> dtypes;
   if(lookupIPv4)
     dtypes.push_back(DNSType::A);
@@ -126,9 +179,9 @@ int TDNSLookupIPs(const char* name, int timeoutMsec, int lookupIPv4, int lookupI
   return 0;
 }
 
-int TDNSLookupMXs(const char* name, int timeoutMsec, struct TDNSMXs** ret)
+int TDNSLookupMXs(TDNSContext* context, const char* name, int timeoutMsec, struct TDNSMXs** ret)
 {
-  Socket sock = makeResolverSocket();
+  Socket sock = makeResolverSocket(context->servers[0]);
 
   std::unique_ptr<vector<struct TDNSMX*>, TDNSCleanUp<struct TDNSMX>> sas(new vector<struct TDNSMX*>());
   uint32_t resttl = std::numeric_limits<uint32_t>::max();
@@ -181,9 +234,9 @@ void freeTDNSMXs(struct TDNSMXs* vec)
   delete vec;
 }
 
-int TDNSLookupTXTs(const char* name, int timeoutMsec, struct TDNSTXTs** ret)
+int TDNSLookupTXTs(TDNSContext* context, const char* name, int timeoutMsec, struct TDNSTXTs** ret)
 {
-  Socket sock = makeResolverSocket();
+  Socket sock = makeResolverSocket(context->servers[0]);
 
   std::unique_ptr<vector<struct TDNSTXT*>, TDNSCleanUp<struct TDNSTXT>> sas(new vector<struct TDNSTXT*>());
   uint32_t resttl = std::numeric_limits<uint32_t>::max();

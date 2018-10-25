@@ -7,6 +7,8 @@ extern "C" {
 
 const char* TDNSErrorMessage(int err);
 
+struct TDNSContext;
+  
 struct TDNSIPAddresses
 {
   struct sockaddr_storage** addresses;
@@ -40,14 +42,15 @@ struct TDNSMXs
   unsigned int ttl;
   void *__handle;
 };
-  
 
-int TDNSLookupIPs(const char* name, int timeoutMsec, int lookupIPv4, int lookupIPv6,   struct TDNSIPAddresses** ret);
+struct TDNSContext* TDNSMakeContext(const char* servers);
+void freeTDNSContext(struct TDNSContext*);
+  
+int TDNSLookupIPs(struct TDNSContext*, const char* name, int timeoutMsec, int lookupIPv4, int lookupIPv6,   struct TDNSIPAddresses** ret);
 void freeTDNSIPAddresses(struct TDNSIPAddresses*);
 
-int TDNSLookupMXs(const char* name, int timeoutMsec, struct TDNSMXs** ret);
+int TDNSLookupMXs(struct TDNSContext*, const char* name, int timeoutMsec, struct TDNSMXs** ret);
 void freeTDNSMXs(struct TDNSMXs*);
-
 
 struct TDNSTXT
 {
@@ -61,7 +64,7 @@ struct TDNSTXTs
   void *__handle;
 };
 
-int TDNSLookupTXTs(const char* name, int timeoutMsec, struct TDNSTXTs** ret);
+int TDNSLookupTXTs(struct TDNSContext*, const char* name, int timeoutMsec, struct TDNSTXTs** ret);
 void freeTDNSTXTs(struct TDNSTXTs*);
 
   

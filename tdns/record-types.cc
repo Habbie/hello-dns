@@ -6,6 +6,7 @@
    @brief Defines has the actual Resource Record Generators
 */
 
+//! Used by an RRGen to output record content to 'zone text' format
 /*! this exploits the similarity in writing/reading DNS messages
    and outputting master file format text */
 struct DNSStringWriter

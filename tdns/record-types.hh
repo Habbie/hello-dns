@@ -7,6 +7,7 @@
 class DNSMessageReader;
 class DNSStringWriter;
 
+//! Class that reads a string in 'zonefile format' on behalf of an RRGen
 struct DNSStringReader
 {
   DNSStringReader(const std::string& str);

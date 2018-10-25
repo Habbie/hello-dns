@@ -4,10 +4,11 @@
 Note: this page is part of the
 '[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
-# teaching DNS
+# teaching DNS: Library, Authoritative, Resolver
 Welcome to tdns, a 'from scratch' teaching DNS library.  Based on `tdns`,
 [`tauth`](tauth.md.html) and [`tres`](tres.md.html) implement all of [basic
-DNS](../basic.md.html) in ~~1000~~ ~~1100~~ 1200 lines of code.  Code is
+DNS](../basic.md.html) and large parts of DNSSEC in ~~2000~~ ~~3000~~ 3100
+lines of code.  Code is
 [here](https://github.com/ahupowerdns/hello-dns/tree/master/tdns).  To
 compile, see the end of this document.
 
@@ -34,7 +35,7 @@ Non-goals are:
 
  * Performance
  * Implementing more features (unless very educational)
- * DNSSEC signing
+ * DNSSEC signing, validation
 
 A more narrative explanation of what `tdns` is and what we hope it will
 achieve can be found [here](intro.md.html).
@@ -106,9 +107,9 @@ again emphasise how we interpret the input as binary, ponder:
 ```
 
 ## DNSType, RCode, DNSSection
-This is an enum that contains the names and numerical values of the DNS
-types. This means for example that `DNSType::A` corresponds to 1 and
-`DNSType::SOA` to 6.
+These is an enums that contains the names and numerical values of the DNS
+types and error codes.  This means for example that `DNSType::A` corresponds
+to 1 and `DNSType::SOA` to 6.
 
 To make life a little bit easier, an operator has been defined which allows
 the printing of `DNSTypes` as symbolic names. Sample:
@@ -124,7 +125,6 @@ the printing of `DNSTypes` as symbolic names. Sample:
 Similar enums are defined for RCodes (response codes, RCode::Nxdomain for
 example) and DNS Sections (Question, Answer, Nameserver/Authority,
 Additional). These too can be printed.
-
 
 ## `tdig`
 To discover how `tdns` works, let's start with the basics: sending DNS
@@ -162,7 +162,7 @@ Next, mechanics:
 1	Socket sock(server.sin4.sin_family, SOCK_DGRAM);
 2	SConnect(sock, server);
 3	SWrite(sock, dmw.serialize());
-4	string resp =SRecvfrom(sock, 65535, server);
+4	string resp = SRecvfrom(sock, 65535, server);
 5
 6	DNSMessageReader dmr(resp);
 ```
@@ -206,6 +206,46 @@ has a `toString()` method for human friendly output.
 This code is in [dnsmessages.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dnsmessages.cc)
 and [dnsmessages.hh](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dnsmessages.hh).
 
+## `RRGen`s: dealing with all the record types
+DNS knows many record types, so we need a unified interface that can pass
+all of them. For this purpose, `tdns` uses `RRGen` instances. `RRGen`s are
+classes, one for each record type, all deriving from the `RRGen` base.
+
+Each `RRGen` has a method called `toString()` which emits the record's
+contents in familiar 'zonefile' format. 
+
+`RRGen`s can be created using their specific instance types, for example
+like this:
+
+```
+	ComboAddress ip("203.0.113.1");
+	auto agen = AGen::make(ip);
+
+	cout << agen->toString() << endl; // prints 203.0.113.1
+
+	auto soagen = SOAGen::make({"ns1", "powerdns", "com"}, 
+		{"bert.hubert", "powerdns", "com"}, 2018102301);
+```
+
+`RRGen`s also know how to serialize themselves from a `DNSMessageReader`, or how to
+write themselves out to a `DNSMessageWriter`.
+
+When reading DNS Messages (see below), `DNSMessageReader::getRR()` will
+return `RRGen` instances to you, if you want to do more than print their
+contents, you need to cast them to the specific type, for example:
+
+```
+  ComboAddress ret;
+  ret.sin4.sin_family = 0;
+  if(auto ptr = dynamic_cast<AGen*>(rr.get()))
+    ret=ptr->getIP();
+  else if(auto ptr = dynamic_cast<AAAAGen*>(rr.get()))
+    ret=ptr->getIP();
+```
+
+This code from `tres` checks if a record is an IP or IPv6 address and
+extracts the IP address - all without using ASCII.
+
 ## DNSMessageReader
 This class reads a DNS message, and makes available:
  
@@ -216,6 +256,18 @@ This class reads a DNS message, and makes available:
 Of specific security note, this is one area where we might potentially have
 to do pointer arithmetic. For security purposes, `DNSMessageReader` uses
 bounds checking access methods exclusively.
+
+Somewhat unexpectedly, parsing a packet does not immediately give the user
+access to the query and type of the query (or response). The reason for this
+is that there are packets that have no query defined. So to get the query,
+call `getQuery()`.
+
+Getting resource records from a `DNSMessageReader` happens via `getRR` which
+returns record details and a smart pointer to an `RRGen` instance (as
+described above). 
+
+A good example of how `DNSMessageReader` works can be found in
+[`tdig.cc`](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dns-storage.hh).
 
 ## DNSMessageWriter
 This class creates DNS messages, and in its constructor it needs to know the
@@ -228,10 +280,19 @@ also be added together as RRSets, and in 'section order'.
 Internally `DNSMessageWriter` again only uses bounds checked methods for
 modifying its state.
 
-A `DNSMessageWriter` has a maximum length. If new resource record, as
-written by `putRR`, would exceed this maximum length, that record is rolled
-back and a std::out_of_range() exception is thrown. This allows the caller
-to either truncate or decide this data was optional anyhow.
+A `DNSMessageWriter` has a maximum length (set via its constructor).  If new
+resource record, as written by `putRR`, would exceed this maximum length,
+that record is rolled back and a std::out_of_range() exception is thrown. 
+This allows the caller to either truncate or decide this data was optional
+anyhow.
+
+Writing actual records to DNSMessageWriter proceeds via `putRR()` which
+serializes `RRGen` instances to the message.
+
+Samples of how to do this can be found in
+[tres.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dns-storage.hh)
+and
+[tauth.cc](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/dns-storage.hh).
 
 ### Compression
 DNS compression is unreasonably difficult to get right. In what happens to
@@ -253,6 +314,7 @@ EDNS record in the response.
 
 The DNSMessageWriter, in somewhat of a layering violation, takes care of
 this in `serialize()`.
+
 
 # Internals
 `tdns` uses several small pieces of code not core to dns:
@@ -279,7 +341,7 @@ $ dig -t any time.powerdns.org @::1 -p 5300 +short
 time.powerdns.org.	3600	IN	TXT	"The time is Fri, 13 Apr 2018 12:55:54 +0200"
 ```
 
-Next up, read about [`tauth`](tauth.md.html) and [`tres`](tres.md.html).
+For more detauls, read on about [`tauth`](tauth.md.html) and [`tres`](tres.md.html).
 
 <script>
 window.markdeepOptions={};

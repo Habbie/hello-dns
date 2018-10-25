@@ -173,6 +173,7 @@ DNSName makeDNSName(const std::string& str);
 
 class DNSMessageWriter;
 
+//! Represents the contents of a resource record
 /*!  this is the how all resource records are stored, as generators
  *   that can convert their content to a human readable string or to a DNSMessage
  */

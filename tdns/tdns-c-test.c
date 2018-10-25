@@ -7,13 +7,18 @@
 
 int main(int argc, char **argv)
 {
+  struct TDNSContext* tdns = TDNSMakeContext("");
+  if(!tdns) {
+    fprintf(stderr, "Unable to initialize tdns\n");
+    return EXIT_FAILURE;
+  }
   struct TDNSIPAddresses* ips;
-  int err = TDNSLookupIPs("www.nosuchdomain234234.nl", 1000, 1, 1, &ips);
+  int err = TDNSLookupIPs(tdns, "www.nosuchdomain234234.nl", 1000, 1, 1, &ips);
   if(err) {
     fprintf(stderr, "Error looking up domain name: %s\n", TDNSErrorMessage(err));
   }
 
-  err = TDNSLookupIPs("www.dns-oarc.net", 1000, 1, 1, &ips);
+  err = TDNSLookupIPs(tdns, "www.dns-oarc.net", 1000, 1, 1, &ips);
   if(err) {
     fprintf(stderr, "Error looking up domain name: %s\n", TDNSErrorMessage(err));
     return EXIT_FAILURE;
@@ -32,7 +37,7 @@ int main(int argc, char **argv)
 
 
   struct TDNSMXs* mxs;
-  err = TDNSLookupMXs("isc.org", 1000, &mxs);
+  err = TDNSLookupMXs(tdns, "isc.org", 1000, &mxs);
   if(err) {
     fprintf(stderr, "Error looking up domain name: %s\n", TDNSErrorMessage(err));
     return EXIT_FAILURE;
@@ -46,7 +51,7 @@ int main(int argc, char **argv)
 
 
   struct TDNSTXTs* txts;
-  err = TDNSLookupTXTs("nl", 1000, &txts);
+  err = TDNSLookupTXTs(tdns, "nl", 1000, &txts);
   if(err) {
     fprintf(stderr, "Error looking up domain name: %s\n", TDNSErrorMessage(err));
     return EXIT_FAILURE;
