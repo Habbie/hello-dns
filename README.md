@@ -56,6 +56,7 @@ The content is spread out over several documents:
  * [tdns: a 'from scratch' DNS library](tdns/README.md.html)
    * [tauth: a minimal but feature complete authoritative server](tdns/tauth.md.html)
    * [tres: a minimal but feature complete DNS resolver](tdns/tres.md.html)
+   * [C API: a C library for doing DNS queries](tdns/c-api.md.html)
  * Optional elements: [EDNS, TSIG, Dynamic Updates, DNAME, DNS Cookies](optional.md.html)
  * [Privacy related](privacy.md.html): QName minimization, DNS-over-TLS, DNS-over-HTTPS, EDNS Padding
  * [DNSSEC](dnssec.md.html)

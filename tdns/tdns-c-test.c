@@ -63,5 +63,5 @@ int main(int argc, char **argv)
   }
   freeTDNSTXTs(txts);
 
-  
+  freeTDNSContexteeTDNSContext(tdns);
 }

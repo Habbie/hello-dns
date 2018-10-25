@@ -341,7 +341,8 @@ $ dig -t any time.powerdns.org @::1 -p 5300 +short
 time.powerdns.org.	3600	IN	TXT	"The time is Fri, 13 Apr 2018 12:55:54 +0200"
 ```
 
-For more detauls, read on about [`tauth`](tauth.md.html) and [`tres`](tres.md.html).
+For more detauls, read on about [`tauth`](tauth.md.html), [`tres`](tres.md.html)
+or the [C API](c-api.md.html).
 
 <script>
 window.markdeepOptions={};
