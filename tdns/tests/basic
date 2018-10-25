@@ -1,5 +1,5 @@
 #!/bin/bash
-../tdns 0.0.0.0:9999 & 
+../tauth 0.0.0.0:9999 &
 sleep 1
 ../tdig www.powerdns.com A 127.0.0.1:9999 > actual_output
 kill %1
