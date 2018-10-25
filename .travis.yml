@@ -20,10 +20,10 @@ script:
  - cd tdns
  - make
  - make check
- - sudo ./tdns 127.0.0.1 > tdns.log &
+ - sudo ./tauth 127.0.0.1 > tauth.log &
  - sleep 5
  - echo 'tdns.powerdns.org localhost 127.0.0.1' | genreport -4 -f -I opcode -I opcodeflg -d > genreport.out
  - FAILCOUNT=$(tail -n 1 genreport.out | cut -f2 '-d:' | xargs -n1 echo | grep -v =ok | wc -l)
- - sudo killall tdns
+ - sudo killall tauth
  - sleep 5
- - if [ $FAILCOUNT != 0 ] ; then cat genreport.out ; cat tdns.log ; false ; fi
+ - if [ $FAILCOUNT != 0 ] ; then cat genreport.out ; cat tauth.log ; false ; fi
