@@ -42,7 +42,7 @@ void DNSMessageReader::xfrName(DNSName& res, uint16_t* pos)
       uint16_t labellen2 = getUInt8(pos);
       uint16_t newpos = ((labellen & ~0xc0) << 8) | labellen2;
       newpos -= sizeof(dnsheader); // includes struct dnsheader
-      //      cout<< res<<" "<<(*pos -2) << " -> "<<newpos<<endl;
+
       if(newpos < *pos) {
         res=res+getName(&newpos);
         return;

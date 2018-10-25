@@ -52,9 +52,10 @@ The content is spread out over several documents:
  * [The core of DNS](basic.md.html)
  * [Relevant to stub resolvers and applications](stub.md.html)
  * [Relevant to authoritative servers](auth.md.html)
- * [tdns: a 'from scratch' teaching authoritative server, implementing all of basic DNS in 1100 lines of code](tdns/README.md.html)
  * [Relevant to resolvers](resolver.md.html)
- * [tres: a 'from scratch' teaching resolver, implementing all relevant  parts of DNS in 500 lines of code](tdns/tres.md.html)
+ * [tdns: a 'from scratch' DNS library](tdns/README.md.html)
+   * [tauth: a minimal but feature complete authoritative server](tdns/tauth.md.html)
+   * [tres: a minimal but feature complete DNS resolver](tdns/tres.md.html)
  * Optional elements: [EDNS, TSIG, Dynamic Updates, DNAME, DNS Cookies](optional.md.html)
  * [Privacy related](privacy.md.html): QName minimization, DNS-over-TLS, DNS-over-HTTPS, EDNS Padding
  * [DNSSEC](dnssec.md.html)
