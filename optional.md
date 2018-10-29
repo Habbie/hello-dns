@@ -63,6 +63,81 @@ are currently in common use, or will soon be:
 [RFC 7871](https://tools.ietf.org/html/rfc7871) is a concise specification
 that is completely applicable to 2018 DNS. Its implementation is highly
 recommended.
+
+## Dynamic Updates (DNS UPDATE)
+Defined in [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS UPDATE is a
+somewhat under used extension that allows a client to request an authoritative
+server add or remove RR or RRSETs in a zone. While primarily useful for
+allowing distributed management of a zone, a side benefit for authoritative
+server implementors is effectively free support for new RR types as the burden
+of supporting new types shifts to the client.
+
+Dynamic Update access is generally limited by some combination of client IP
+address, RR name and/or type, or message signature such as TSIG or more rarely
+SIG(0). For example, on a trusted network clients may be allowed to update a
+reverse entry based on their IP address. Over the internet controls using
+stronger authentication like TSIG or SIG(0) should be employed.
+
+On the wire DNS UPDATE uses the standard DNS message format with some
+repurposing of the message body. Messages begin with a standard header
+with the OPCODE set to UPDATE (5). The question section is repurposed to
+specify the zone to update, answers becomes prerequisites, and the authority
+section holds the updates themselves.
+
+*****************************************
+*
+*  +------------+      +---------------+
+*  + Header     + ---> + Header        +
+*  +------------+      +---------------+
+*  + Question   + ---> + Zone          +
+*  +------------+      +---------------+
+*  + Answers    + ---> + Prerequisites +
+*  +------------+      +---------------+
+*  + Authority  + ---> + Updates       +
+*  +------------+      +---------------+
+*  + Additional + ---> + Additional    +
+*  +------------+      +---------------+
+*
+*****************************************
+
+**Zone**
+
+A question (name, type and class) of type SOA is used to specify the (single)
+target zone's name and class.
+
+**Prerequisites**
+
+Prerequisites are constraints that must pass before any updates are processed.
+All of the constraints apply to entire RRSETs as opposed to individual RRs.
+Prerequisite failures are signalled by a response message's RCODE.
+
+Prerequiste            | Type         | Class         | Data | Failure RCODE
+-----------------------|--------------|---------------|------|--------------
+RRSET exists           | RRSET's Type | ANY (255)     | No   | NXRRSET (8)
+RRSET exists with data | RRSET's Type | RRSET's Class | Yes  | NXRRSET (8)
+RRSET does not exist   | RRSET's Type | NONE (254)    | No   | YXRRSET (7)
+Name is in use         | ANY (255)    | ANY (255)     | No   | NXDOMAIN (3) 
+Name is not in use     | ANY (255)    | NONE (254)    | No   | YXDOMAIN (6)
+
+TTLs are not used in prerequisites and must be set to zero. Prerequisites without
+data must include the RDLEN field set to zero.
+
+**Updates**
+
+Change                      | Type       | Class        | Data
+----------------------------|------------|--------------|-----
+Add an RR to an RRSET       | RRSET Type | Zone's Class | Yes
+Delete an RRSET             | RRSET Type | ANY (255)    | No
+Delete all RRSETs at a name | ANY (255)  | ANY (255)    | No
+Delete an RR from an RRSET  | RRSET Type | NONE (254)   | Yes
+
+With the exception of adding an RR, TTLs are not used and must be set to zero.
+Should adding an RR cause duplicate data, or should a type be a singleton type
+the server will silently deduplicate the data. If a delete refers to something
+that doesn't exist the server will silently ignore the change. As with
+prerequisites changes that don't reference data must still include the RDLEN
+field.
+
 ...
  
 <!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="ext/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
