@@ -14,6 +14,11 @@ found [https://github.com/ahupowerdns/hello-dns/](here) and help is highly
 welcome!  Feedback can also be sent to bert.hubert@powerdns.com or
 [@PowerDNS_Bert](https://twitter.com/PowerDNS_Bert).
 
+Contributors so far include: Michał Kępień, Jan-Piet Mens, Andrew Babichev,
+Jacob Hoffman-Andrews, Peter van Dijk, Nathan Froyd, Gene McCulley,
+Charles-Henri Bruyand, jose nazario, Warren Kumari, and Andrew
+Tunnell-Jones.  Thanks!
+
 Although we start from relatively basic principles, the reader is expected
 to know what IP addresses are, what a (stub) resolver is and what an
 authoritative server is supposed to do.  When in doubt: authoritative
