@@ -66,7 +66,7 @@ recommended.
 
 ## Dynamic Updates (DNS UPDATE)
 Defined in [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS UPDATE is a
-somewhat under used extension that allows a client to request an authoritative
+somewhat underused extension that allows a client to request an authoritative
 server add or remove RR or RRSETs in a zone. While primarily useful for
 allowing distributed management of a zone, a side benefit for authoritative
 server implementors is effectively free support for new RR types as the burden
