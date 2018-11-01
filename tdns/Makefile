@@ -1,4 +1,4 @@
-CXXFLAGS:=-std=gnu++14 -Wall -O2 -MMD -MP -ggdb -Iext/simplesocket -Iext/simplesocket/ext/fmt-5.2.1/include -pthread
+CXXFLAGS:=-std=gnu++14 -Wall -O2 -MMD -MP -ggdb -Iext/simplesocket -Iext/simplesocket/ext/fmt-5.2.1/include -Iext/ -pthread 
 CFLAGS:= -Wall -O2 -MMD -MP -ggdb 
 
 PROGRAMS = tauth tdig tres tdns-c-test

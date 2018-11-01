@@ -7,7 +7,7 @@
 #include <random>
 #include "record-types.hh"
 #include <thread>
-
+#include "nlohmann/json.hpp"
 /*! 
    @file
    @brief Teachable resolver
@@ -15,11 +15,83 @@
 
 using namespace std;
 
-multimap<DNSName, ComboAddress> g_root;
-unsigned int g_numqueries;
-bool g_skipIPv6{false};  //!< set this if you have no functioning IPv6
+//! Thrown if too many queries have been sent.
+struct TooManyQueriesException{};
+//! this is a different kind of error: we KNOW your name does not exist
+struct NxdomainException{};
+//! Or if your type does not exist
+struct NodataException{};
 
-ofstream g_dot;
+multimap<DNSName, ComboAddress> g_root;
+class TDNSResolver
+{
+public:
+
+  TDNSResolver(multimap<DNSName, ComboAddress>& root) : d_root(root)
+  {}
+  TDNSResolver()
+  {}
+
+  //! This describes a single resource record returned
+  struct ResolveRR
+  {
+    DNSName name;
+    uint32_t ttl;
+    std::unique_ptr<RRGen> rr;
+  };
+  
+  //! This is the end result of our resolving work
+  struct ResolveResult
+  {
+    vector<ResolveRR> res; //!< what you asked for
+    vector<ResolveRR> intermediate; //!< a CNAME chain that gets you there
+    void clear()
+    {
+      res.clear();
+      intermediate.clear();
+    }
+  };
+
+  ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& mservers=g_root);
+
+  void createPlot(const std::string& fname)
+  {
+    d_dot.open("plot.dot");
+    d_dot << "digraph { "<<endl;
+  }
+
+  void setLog(ostream& fs)
+  {
+    d_log = &fs;
+  }
+  
+  ~TDNSResolver()
+  {
+    if(d_dot)
+      d_dot << "}\n";
+  }
+  DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth=0);
+private:
+  void dotQuery(const DNSName& auth, const DNSName& server);
+  void dotAnswer(const DNSName& dn, const DNSType& rrdt, const DNSName& server);
+  void dotCNAME(const DNSName& target, const DNSName& server, const DNSName& dn);
+  void dotDelegation(const DNSName& rrdn, const DNSName& server);
+  multimap<DNSName, ComboAddress> d_root;
+  unsigned int d_maxqueries{100};
+
+  bool d_skipIPv6{false};
+  ofstream d_dot;
+  ostream* d_log{nullptr};
+  ostream& lstream()
+  {
+    if(d_log)
+      return *d_log;
+    else
+      return cout;
+  }
+public:
+  unsigned int d_numqueries{0};
+};
 
 /** Helper function that extracts a useable IP address from an
     A or AAAA resource record. Returns sin_family == 0 if it didn't work */
@@ -36,8 +108,6 @@ static ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
   return ret;
 }
 
-//! Thrown if too many queries have been sent.
-struct TooManyQueriesException{};
 
 /** This function guarantees that you will get an answer from this server. It will drop EDNS for you
     and eventually it will even fall back to TCP for you. If nothing works, an exception is thrown.
@@ -47,15 +117,15 @@ struct TooManyQueriesException{};
     This function does check if the ID field of the response matches the query, but the caller should
     check qname and qtype.
 */
-DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth=0)
+DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth)
 {
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
 
   bool doEDNS=true, doTCP=false;
-
+  
   for(int tries = 0; tries < 4 ; ++tries) {
-    if(++g_numqueries > 300) // there is the possibility our algorithm will loop
+    if(++d_numqueries > d_maxqueries) // there is the possibility our algorithm will loop
       throw TooManyQueriesException(); // and send out thousands of queries, so let's not
 
     DNSMessageWriter dmw(dn, dt);
@@ -108,20 +178,20 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
     }
     DNSMessageReader dmr(resp);
     if(dmr.dh.id != dmw.dh.id) {
-      cout << prefix << "ID mismatch on answer" << endl;
+      lstream() << prefix << "ID mismatch on answer" << endl;
       continue;
     }
     if(!dmr.dh.qr) { // for security reasons, you really need this
-      cout << prefix << "What we received was not a response, ignoring"<<endl;
+      lstream() << prefix << "What we received was not a response, ignoring"<<endl;
       continue;
     }
     if((RCode)dmr.dh.rcode == RCode::Formerr) { // XXX this should check that there is no OPT in the response
-      cout << prefix <<"Got a Formerr, resending without EDNS"<<endl;
+      lstream() << prefix <<"Got a Formerr, resending without EDNS"<<endl;
       doEDNS=false;
       continue;
     }
     if(dmr.dh.tc) {
-      cout << prefix <<"Got a truncated answer, retrying over TCP"<<endl;
+      lstream() << prefix <<"Got a truncated answer, retrying over TCP"<<endl;
       doTCP=true;
       continue;
     }
@@ -131,30 +201,7 @@ DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, cons
   return DNSMessageReader(""); // just to make compiler happy
 }
 
-//! this is a different kind of error: we KNOW your name does not exist
-struct NxdomainException{};
-//! Or if your type does not exist
-struct NodataException{};
 
-//! This describes a single resource record 
-struct ResolveRR
-{
-  DNSName name;
-  uint32_t ttl;
-  std::unique_ptr<RRGen> rr;
-};
-
-//! This is the end result of our resolving work
-struct ResolveResult
-{
-  vector<ResolveRR> res; //!< what you asked for
-  vector<ResolveRR> intermediate; //!< a CNAME chain that gets you there
-  void clear()
-  {
-    res.clear();
-    intermediate.clear();
-  }
-};
 
 /** This takes a list of servers (in a specific order) and shuffles them to a vector.
     This is to spread the load across nameservers
@@ -172,28 +219,28 @@ static auto randomizeServers(const multimap<DNSName, ComboAddress>& mservers)
   return servers;
 }
 
-static void dotQuery(const DNSName& auth, const DNSName& server)
+void TDNSResolver::dotQuery(const DNSName& auth, const DNSName& server)
 {
-  g_dot << '"' << auth << "\" [shape=diamond]\n";
-  g_dot << '"' << auth << "\" -> \"" << server << "\" [ label = \" " << g_numqueries<<"\"]" << endl;
+  d_dot << '"' << auth << "\" [shape=diamond]\n";
+  d_dot << '"' << auth << "\" -> \"" << server << "\" [ label = \" " << d_numqueries<<"\"]" << endl;
 }
 
-static void dotAnswer(const DNSName& dn, const DNSType& rrdt, const DNSName& server)
+void TDNSResolver::dotAnswer(const DNSName& dn, const DNSType& rrdt, const DNSName& server)
 {
-  g_dot <<"\"" << dn << "/"<<rrdt<<"\" [shape=box]\n";
-  g_dot << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\""<<endl;
+  d_dot <<"\"" << dn << "/"<<rrdt<<"\" [shape=box]\n";
+  d_dot << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\""<<endl;
 }
 
-static void dotCNAME(const DNSName& target, const DNSName& server, const DNSName& dn)
+void TDNSResolver::dotCNAME(const DNSName& target, const DNSName& server, const DNSName& dn)
 {
-  g_dot << '"' << target << "\" [shape=box]"<<endl;
-  g_dot << '"' << server << "\" -> \"" << dn << "/CNAME\" -> \"" << target <<"\"\n";
+  d_dot << '"' << target << "\" [shape=box]"<<endl;
+  d_dot << '"' << server << "\" -> \"" << dn << "/CNAME\" -> \"" << target <<"\"\n";
 }
 
-static void dotDelegation(const DNSName& rrdn, const DNSName& server)
+void TDNSResolver::dotDelegation(const DNSName& rrdn, const DNSName& server)
 {
-  g_dot << '"' << rrdn << "\" [shape=diamond]\n";
-  g_dot << '"' << server << "\" -> \"" << rrdn << "\"" <<endl;
+  d_dot << '"' << rrdn << "\" [shape=diamond]\n";
+  d_dot << '"' << server << "\" -> \"" << rrdn << "\"" <<endl;
 }
 
 /** This attempts to look up the name dn with type dt. The depth parameter is for 
@@ -203,11 +250,11 @@ static void dotDelegation(const DNSName& rrdn, const DNSName& server)
     root-servers.
 */
 
-ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& mservers=g_root)
+TDNSResolver::ResolveResult TDNSResolver::resolveAt(const DNSName& dn, const DNSType& dt, int depth, const DNSName& auth, const multimap<DNSName, ComboAddress>& mservers)
 {
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
-  cout << prefix << "Starting query at authority = "<<auth<< ", have "<<mservers.size() << " addresses to try"<<endl;
+  lstream() << prefix << "Starting query at authority = "<<auth<< ", have "<<mservers.size() << " addresses to try"<<endl;
 
   ResolveResult ret;
   // it is good form to sort the servers in order of response time
@@ -222,10 +269,11 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
     ComboAddress server=sp.second;
     server.sin4.sin_port = htons(53); // just to be sure
     
-    if(g_skipIPv6 && server.sin4.sin_family == AF_INET6)
+    if(d_skipIPv6 && server.sin4.sin_family == AF_INET6)
       continue;
     try {
-      cout << prefix<<"Sending to server "<<sp.first<<" on "<<server.toString()<<endl;
+      lstream() << prefix<<"Sending to server "<<sp.first<<" on "<<server.toString()<<endl;
+
       DNSMessageReader dmr = getResponse(server, dn, dt, depth); // takes care of EDNS and TCP for us
 
       DNSSection rrsection;
@@ -235,22 +283,22 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
       
       dmr.getQuestion(rrdn, rrdt); // parse into rrdn and rrdt
       
-      cout << prefix<<"Received response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
+      lstream() << prefix<<"Received response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
       if(rrdn != dn || dt != rrdt) {
-        cout << prefix << "Got a response to a different question or different type than we asked for!"<<endl;
+        lstream() << prefix << "Got a response to a different question or different type than we asked for!"<<endl;
         continue; // see if another server wants to work with us
       }
 
       // in a real resolver, you must ignore NXDOMAIN in case of a CNAME. Because that is how the internet rolls.
       if((RCode)dmr.dh.rcode == RCode::Nxdomain) {
-        cout << prefix<<"Got an Nxdomain, it does not exist"<<endl;
+        lstream() << prefix<<"Got an Nxdomain, it does not exist"<<endl;
         throw NxdomainException();
       }
       else if((RCode)dmr.dh.rcode != RCode::Noerror) {
         throw std::runtime_error(string("Answer from authoritative server had an error: ") + toString((RCode)dmr.dh.rcode));
       }
       if(dmr.dh.aa) {
-        cout << prefix<<"Answer says it is authoritative!"<<endl;
+        lstream() << prefix<<"Answer says it is authoritative!"<<endl;
       }
       
       std::unique_ptr<RRGen> rr;
@@ -262,20 +310,20 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
          And if we do get a delegation, there might even be useful glue */
       
       while(dmr.getRR(rrsection, rrdn, rrdt, ttl, rr)) {
-        cout << prefix << rrsection<<" "<<rrdn<< " IN " << rrdt << " " << ttl << " " <<rr->toString()<<endl;
+        lstream() << prefix << rrsection<<" "<<rrdn<< " IN " << rrdt << " " << ttl << " " <<rr->toString()<<endl;
         if(dmr.dh.aa==1) { // authoritative answer. We trust this.
           if(rrsection == DNSSection::Answer && dn == rrdn && dt == rrdt) {
-            cout << prefix<<"We got an answer to our question!"<<endl;
+            lstream() << prefix<<"We got an answer to our question!"<<endl;
             dotAnswer(dn, rrdt, sp.first);
             ret.res.push_back({dn, ttl, std::move(rr)});
           }
           else if(dn == rrdn && rrdt == DNSType::CNAME) {
             DNSName target = dynamic_cast<CNAMEGen*>(rr.get())->d_name;
             ret.intermediate.push_back({dn, ttl, std::move(rr)}); // rr is DEAD now!
-            cout << prefix<<"We got a CNAME to " << target <<", chasing"<<endl;
+            lstream() << prefix<<"We got a CNAME to " << target <<", chasing"<<endl;
             dotCNAME(target, sp.first, dn);
             if(target.isPartOf(auth)) { // this points to something we consider this server auth for
-              cout << prefix << "target " << target << " is within " << auth<<", harvesting from packet"<<endl;
+              lstream() << prefix << "target " << target << " is within " << auth<<", harvesting from packet"<<endl;
               bool hadMatch=false;      // perhaps the answer is in this DNS message
               while(dmr.getRR(rrsection, rrdn, rrdt, ttl, rr)) {
                 if(rrsection==DNSSection::Answer && rrdn == target && rrdt == dt) {
@@ -284,11 +332,11 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
                 }
               }
               if(hadMatch) {            // if it worked, great, otherwise actual chase
-                cout << prefix << "in-message chase worked, we're done"<<endl;
+                lstream() << prefix << "in-message chase worked, we're done"<<endl;
                 return ret;
               }
               else
-                cout <<prefix<<"in-message chase not successful, will do new query for "<<target<<endl;
+                lstream() <<prefix<<"in-message chase not successful, will do new query for "<<target<<endl;
             }
                         
             auto chaseres=resolveAt(target, dt, depth + 1);
@@ -312,7 +360,7 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
               newAuth = rrdn;
             }
             else
-              cout<< prefix << "Authoritative server gave us NS record to which this query does not belong" <<endl;
+              lstream()<< prefix << "Authoritative server gave us NS record to which this query does not belong" <<endl;
           }
           else if(rrsection == DNSSection::Additional && nsses.count(rrdn) && (rrdt == DNSType::A || rrdt == DNSType::AAAA)) {
             // this only picks up addresses for NS records we've seen already
@@ -320,36 +368,36 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
             if(rrdn.isPartOf(auth)) 
               addresses.insert({rrdn, getIP(rr)}); 
             else
-              cout << prefix << "Not accepting IP address of " << rrdn <<": out of authority of this server"<<endl;
+              lstream() << prefix << "Not accepting IP address of " << rrdn <<": out of authority of this server"<<endl;
           }
         }
       }
       if(!ret.res.empty()) {
         // the answer is in!
-        cout << prefix<<"Done, returning "<<ret.res.size()<<" results, "<<ret.intermediate.size()<<" intermediate\n";
+        lstream() << prefix<<"Done, returning "<<ret.res.size()<<" results, "<<ret.intermediate.size()<<" intermediate\n";
         return ret;
       }
       else if(dmr.dh.aa) {
-        cout << prefix <<"No data response"<<endl;
+        lstream() << prefix <<"No data response"<<endl;
         throw NodataException();
       }
       // we got a delegation
-      cout << prefix << "We got delegated to " << nsses.size() << " " << newAuth << " nameserver names " << endl;
+      lstream() << prefix << "We got delegated to " << nsses.size() << " " << newAuth << " nameserver names " << endl;
       if(!addresses.empty()) {
         // in addresses are nameservers for which we have IP or IPv6 addresses
-        cout << prefix<<"Have "<<addresses.size()<<" IP addresses to iterate to: ";
+        lstream() << prefix<<"Have "<<addresses.size()<<" IP addresses to iterate to: ";
         for(const auto& p : addresses)
-          cout << p.first <<"="<<p.second.toString()<<" ";
-        cout <<endl;
+          lstream() << p.first <<"="<<p.second.toString()<<" ";
+        lstream() <<endl;
         auto res2=resolveAt(dn, dt, depth+1, newAuth, addresses);
         if(!res2.res.empty())
           return res2;
-        cout << prefix<<"The IP addresses we had did not provide a good answer"<<endl;
+        lstream() << prefix<<"The IP addresses we had did not provide a good answer"<<endl;
       }
 
       // well we could not make it work using the servers we had addresses for. Let's try
       // to get addresses for the rest
-      cout << prefix<<"Don't have a resolved nameserver to ask anymore, trying to resolve "<<nsses.size()<<" names"<<endl;
+      lstream() << prefix<<"Don't have a resolved nameserver to ask anymore, trying to resolve "<<nsses.size()<<" names"<<endl;
       vector<DNSName> rnsses;
       for(const auto& name: nsses) 
         rnsses.push_back(name);
@@ -360,20 +408,20 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
       for(const auto& name: rnsses) {
         for(const DNSType& qtype : {DNSType::A, DNSType::AAAA}) {
           multimap<DNSName, ComboAddress> newns;
-          cout << prefix<<"Attempting to resolve NS " <<name<< "|"<<qtype<<endl;
+          lstream() << prefix<<"Attempting to resolve NS " <<name<< "|"<<qtype<<endl;
 
           try {
             auto result = resolveAt(name, qtype, depth+1);
-            cout << prefix<<"Got "<<result.res.size()<<" nameserver " << qtype <<" addresses, adding to list"<<endl;
+            lstream() << prefix<<"Got "<<result.res.size()<<" nameserver " << qtype <<" addresses, adding to list"<<endl;
             for(const auto& res : result.res)
               newns.insert({name, getIP(res.rr)});
-            cout << prefix<<"We now have "<<newns.size()<<" resolved " << qtype<<" addresses to try"<<endl;
+            lstream() << prefix<<"We now have "<<newns.size()<<" resolved " << qtype<<" addresses to try"<<endl;
             if(newns.empty())
               continue;
           }
           catch(...)
           {
-            cout << prefix <<"Failed to resolve name for "<<name<<"|"<<qtype<<endl;
+            lstream() << prefix <<"Failed to resolve name for "<<name<<"|"<<qtype<<endl;
             continue;
           }
           // we have a new (set) of addresses to try
@@ -387,7 +435,7 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
       }
     }
     catch(std::exception& e) {
-      cout << prefix <<"Error resolving: " << e.what() << endl;
+      lstream() << prefix <<"Error resolving: " << e.what() << endl;
     }
   }
   // if we get here, we have no results for you.
@@ -398,7 +446,6 @@ ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const
 void processQuery(int sock, ComboAddress client, DNSMessageReader dmr)
 try
 {
-  g_numqueries = 0;
   DNSName dn;
   DNSType dt;
   dmr.getQuestion(dn, dt);
@@ -409,9 +456,11 @@ try
   dmw.dh.qr = true;
   dmw.dh.id = dmr.dh.id;
 
-  ResolveResult res;
+  TDNSResolver::ResolveResult res;
+  TDNSResolver tdr(g_root);
   try {
-    res = resolveAt(dn, dt);
+
+    res = tdr.resolveAt(dn, dt);
     
     cout<<"Result of query for "<< dn <<"|"<<toString(dt)<<endl;
     for(const auto& r : res.intermediate) {
@@ -419,16 +468,19 @@ try
     }
     
     for(const auto& r : res.res) {
-    cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
+      cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
     }
+    cout<<"Result for "<< dn <<"|"<<toString(dt)<<" took "<<tdr.d_numqueries <<" queries"<<endl;
   }
   catch(NodataException& nd)
   {
+    cout<<"No Data for "<< dn <<"|"<<toString(dt)<<" took "<<tdr.d_numqueries <<" queries"<<endl;
     SSendto(sock, dmw.serialize(), client);
     return;
   }
   catch(NxdomainException& nx)
   {
+    cout<<"NXDOMAIN for "<< dn <<"|"<<toString(dt)<<" took "<<tdr.d_numqueries <<" queries"<<endl;
     dmw.dh.rcode = (int)RCode::Nxdomain;
     SSendto(sock, dmw.serialize(), client);
     return;
@@ -441,10 +493,26 @@ try
   string resp = dmw.serialize();
   SSendto(sock, resp, client); // and send it!
 }
+catch(TooManyQueriesException& e)
+{
+  cerr << "Thread died after too many queries" << endl;
+}
+
 catch(exception& e)
 {
   cerr << "Thread died: " << e.what() << endl;
 }
+
+static nlohmann::json rrToJSON(const TDNSResolver::ResolveRR& r)
+{
+  nlohmann::json record;
+  record["name"]=r.name.toString();
+  record["ttl"]=r.ttl;
+  record["type"]=toString(r.rr->getType());
+  record["content"]=r.rr->toString();
+  return record;
+}
+
 
 int main(int argc, char** argv)
 try
@@ -470,7 +538,8 @@ try
   // retrieve the actual live root NSSET from the hints
   for(const auto& h : hints) {
     try {
-      DNSMessageReader dmr = getResponse(h.second, makeDNSName("."), DNSType::NS);
+      TDNSResolver tdr;
+      DNSMessageReader dmr = tdr.getResponse(h.second, makeDNSName("."), DNSType::NS);
       DNSSection rrsection;
       DNSName rrdn;
       DNSType rrdt;
@@ -518,41 +587,66 @@ try
   }
   
   // single shot operation
-  g_dot.open("plot.dot");
-  g_dot << "digraph { "<<endl;
   DNSName dn = makeDNSName(argv[1]);
   DNSType dt = makeDNSType(argv[2]);
 
-  auto res = resolveAt(dn, dt);
-  cout<<"Result of query for "<< dn <<"|"<<toString(dt)<< " ("<<res.intermediate.size()<<" intermediate, "<<res.res.size()<<" actual)\n";
-  for(const auto& r : res.intermediate) {
-    cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" " << r.rr->toString()<<endl;
+  
+  TDNSResolver tdr(g_root);
+  int rc = EXIT_SUCCESS;
+
+  nlohmann::json jres;
+  jres["name"]=dn.toString();
+  jres["type"]=toString(dt);
+  jres["intermediate"]= nlohmann::json::array();  
+  try {
+    tdr.createPlot("plot.dot");
+    //    ofstream devnull;
+    //    tdr.setLog(devnull);
+    auto res = tdr.resolveAt(dn, dt);
+    jres["numqueries"]=tdr.d_numqueries;
+    cout<<"Result of query for "<< dn <<"|"<<toString(dt)<< " ("<<res.intermediate.size()<<" intermediate, "<<res.res.size()<<" actual)\n";
+    for(const auto& r : res.intermediate) {
+      jres["intermediate"].push_back(rrToJSON(r));
+      cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" " << r.rr->toString()<<endl;
+    }
+    
+    for(const auto& r : res.res) {
+      jres["answer"].push_back(rrToJSON(r));
+      cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
+    }
+    cout<<"Used "<<tdr.d_numqueries << " queries"<<endl;
+    jres["rcode"]=0;
+  }
+  catch(NxdomainException& e)
+  {
+    cout<<argv[1]<<": name does not exist"<<endl;
+    cout<<"Used "<<tdr.d_numqueries << " queries"<<endl;
+    rc=EXIT_FAILURE;
+    jres["rcode"]=3;
+  }
+  catch(NodataException& e)
+  {
+    cout<<argv[1]<< ": name does not have datatype requested"<<endl;
+    cout<<"Used "<<tdr.d_numqueries << " queries"<<endl;
+    rc=EXIT_FAILURE;
+    jres["rcode"]=0;
+  }
+  catch(TooManyQueriesException& e)
+  {
+    cout<<argv[1]<< ": exceeded maximum number of queries (" << tdr.d_numqueries<<")"<<endl;
+    rc= EXIT_FAILURE;
+    jres["rcode"]=2;
   }
 
-  for(const auto& r : res.res) {
-    cout<<r.name <<" "<<r.ttl<<" "<<r.rr->getType()<<" "<<r.rr->toString()<<endl;
-  }
-  cout<<"Used "<<g_numqueries << " queries"<<endl;
-
-  g_dot << "}"<<endl;
+  cout << jres << endl;
+  std::vector<std::uint8_t> v_cbor = nlohmann::json::to_cbor(jres);
+  FILE* out = fopen("cbor", "w");
+  fwrite(&v_cbor[0], 1, v_cbor.size(), out);
+  fclose(out);
+  return rc;
 }
 catch(std::exception& e)
 {
   cerr<<argv[1]<<": fatal error: "<<e.what()<<endl;
-  return EXIT_FAILURE;
-}
-catch(NxdomainException& e)
-{
-  cout<<argv[1]<<": name does not exist"<<endl;
-  return EXIT_FAILURE;
-}
-catch(NodataException& e)
-{
-  cout<<argv[1]<< ": name does not have datatype requested"<<endl;
-  return EXIT_FAILURE;
-}
-catch(TooManyQueriesException& e)
-{
-  cout<<argv[1]<< ": exceeded maximum number of queries"<<endl;
   return EXIT_FAILURE;
 }
