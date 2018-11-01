@@ -92,9 +92,7 @@ struct TDNSContext* TDNSMakeContext (const char* servers)
   if(ret->servers.empty()) {
     return 0;
   }
-  auto ptr = ret.get();
-  ret.release();
-  return ptr;
+  return ret.release();
 }
 
 void freeTDNSContext(struct TDNSContext* tdc)
