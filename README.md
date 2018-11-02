@@ -16,8 +16,8 @@ welcome!  Feedback can also be sent to bert.hubert@powerdns.com or
 
 Contributors so far include: Michał Kępień, Jan-Piet Mens, Andrew Babichev,
 Jacob Hoffman-Andrews, Peter van Dijk, Nathan Froyd, Gene McCulley,
-Charles-Henri Bruyand, jose nazario, Warren Kumari, and Andrew
-Tunnell-Jones.  Thanks!
+Charles-Henri Bruyand, jose nazario, Warren Kumari, Patrick Cloke, and
+Andrew Tunnell-Jones.  Thanks!
 
 Although we start from relatively basic principles, the reader is expected
 to know what IP addresses are, what a (stub) resolver is and what an
