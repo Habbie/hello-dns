@@ -91,6 +91,9 @@ private:
   }
 public:
   unsigned int d_numqueries{0};
+  unsigned int d_numtimeouts{0};
+  unsigned int d_numformerrs{0};
+  
 };
 
 /** Helper function that extracts a useable IP address from an
@@ -119,9 +122,15 @@ static ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
 */
 DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth)
 {
+  static set<std::tuple<ComboAddress, DNSName, DNSType>> skips;
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
 
+  if(skips.count({server,dn,dt})) {
+    throw std::runtime_error("Skipping query to "+server.toString()+": failed before");
+  }
+
+  
   bool doEDNS=true, doTCP=false;
   
   for(int tries = 0; tries < 4 ; ++tries) {
@@ -147,6 +156,7 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
       int err = waitForData(sock, &timeout);
 
       if( err <= 0) {
+        if(!err) d_numtimeouts++;
         throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+ (err ? string(strerror(errno)): string("Timeout")));
       }
 
@@ -157,6 +167,7 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
       err = waitForData(sock, &timeout);
 
       if( err <= 0) {
+        if(!err) d_numtimeouts++;
         throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+ (err ? string(strerror(errno)): string("Timeout")));
       }
       // and even this is not good enough, an authoritative server could be trickling us bytes
@@ -171,6 +182,9 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
 
       // so one could simply retry on a timeout, but here we don't
       if( err <= 0) {
+        skips.insert({server,dn,dt});
+        if(!err) d_numtimeouts++;
+        
         throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+ (err ? string(strerror(errno)): string("Timeout")));
       }
       ComboAddress ign=server;
@@ -188,6 +202,7 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
     if((RCode)dmr.dh.rcode == RCode::Formerr) { // XXX this should check that there is no OPT in the response
       lstream() << prefix <<"Got a Formerr, resending without EDNS"<<endl;
       doEDNS=false;
+      d_numformerrs++;
       continue;
     }
     if(dmr.dh.tc) {
@@ -597,7 +612,8 @@ try
   nlohmann::json jres;
   jres["name"]=dn.toString();
   jres["type"]=toString(dt);
-  jres["intermediate"]= nlohmann::json::array();  
+  jres["intermediate"]= nlohmann::json::array();
+  jres["answer"]= nlohmann::json::array();  
   try {
     tdr.createPlot("plot.dot");
     //    ofstream devnull;
@@ -635,9 +651,12 @@ try
   {
     cout<<argv[1]<< ": exceeded maximum number of queries (" << tdr.d_numqueries<<")"<<endl;
     rc= EXIT_FAILURE;
+
     jres["rcode"]=2;
   }
-
+  jres["numqueries"]=tdr.d_numqueries;
+  jres["numtimeouts"]=tdr.d_numtimeouts;
+  jres["numformerrs"]=tdr.d_numformerrs;
   cout << jres << endl;
   std::vector<std::uint8_t> v_cbor = nlohmann::json::to_cbor(jres);
   FILE* out = fopen("cbor", "w");
