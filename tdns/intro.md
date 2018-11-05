@@ -129,7 +129,7 @@ Labels with the correct case-insensitive equivalence and identity rules,
 lots of problems can never happen.  Tons of conversion mechanics also does
 not need to be typed in (or forgotten in some places).
 
-The core or `tdns` therefore is the tree of nodes as intended in 1034,
+The core of `tdns` therefore is the tree of nodes as intended in 1034,
 containing DNS native objects like `DNSLabel`s and `DNSName`s. These get
 escaping, case sensitivity and binary correctness right 'automatically'.
 
