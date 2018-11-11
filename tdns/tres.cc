@@ -122,14 +122,14 @@ static ComboAddress getIP(const std::unique_ptr<RRGen>& rr)
 */
 DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth)
 {
-  static set<std::tuple<ComboAddress, DNSName, DNSType>> skips;
+  // quick hack to prevent us from hammering dead servers 
+  static thread_local map<std::tuple<ComboAddress, DNSName, DNSType>, int> skips;
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
 
-  if(skips.count({server,dn,dt})) {
+  if(auto iter = skips.find(std::tie(server,dn,dt)); iter != skips.end() && iter->second > 3  ) {
     throw std::runtime_error("Skipping query to "+server.toString()+": failed before");
   }
-
   
   bool doEDNS=true, doTCP=false;
   
@@ -182,7 +182,7 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
 
       // so one could simply retry on a timeout, but here we don't
       if( err <= 0) {
-        skips.insert({server,dn,dt});
+        skips[std::tie(server,dn,dt)]++;
         if(!err) d_numtimeouts++;
         
         throw std::runtime_error("Error waiting for data from "+server.toStringWithPort()+": "+ (err ? string(strerror(errno)): string("Timeout")));
@@ -190,6 +190,7 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
       ComboAddress ign=server;
       resp = SRecvfrom(sock, 65535, ign); 
     }
+    skips.erase(std::tie(server,dn,dt));
     DNSMessageReader dmr(resp);
     if(dmr.dh.id != dmw.dh.id) {
       lstream() << prefix << "ID mismatch on answer" << endl;
@@ -236,26 +237,30 @@ static auto randomizeServers(const multimap<DNSName, ComboAddress>& mservers)
 
 void TDNSResolver::dotQuery(const DNSName& auth, const DNSName& server)
 {
-  d_dot << '"' << auth << "\" [shape=diamond]\n";
-  d_dot << '"' << auth << "\" -> \"" << server << "\" [ label = \" " << d_numqueries<<"\"]" << endl;
+  if(!d_dot) return;
+  (*d_dot) << '"' << auth << "\" [shape=diamond]\n";
+  (*d_dot) << '"' << auth << "\" -> \"" << server << "\" [ label = \" " << d_numqueries<<"\"]" << endl;
 }
 
 void TDNSResolver::dotAnswer(const DNSName& dn, const DNSType& rrdt, const DNSName& server)
 {
-  d_dot <<"\"" << dn << "/"<<rrdt<<"\" [shape=box]\n";
-  d_dot << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\""<<endl;
+  if(!d_dot) return;
+  (*d_dot) <<"\"" << dn << "/"<<rrdt<<"\" [shape=box]\n";
+  (*d_dot) << '"' << server << "\" -> \"" << dn << "/"<<rrdt<<"\""<<endl;
 }
 
 void TDNSResolver::dotCNAME(const DNSName& target, const DNSName& server, const DNSName& dn)
 {
-  d_dot << '"' << target << "\" [shape=box]"<<endl;
-  d_dot << '"' << server << "\" -> \"" << dn << "/CNAME\" -> \"" << target <<"\"\n";
+  if(!d_dot) return;
+  (*d_dot) << '"' << target << "\" [shape=box]"<<endl;
+  (*d_dot) << '"' << server << "\" -> \"" << dn << "/CNAME\" -> \"" << target <<"\"\n";
 }
 
 void TDNSResolver::dotDelegation(const DNSName& rrdn, const DNSName& server)
 {
-  d_dot << '"' << rrdn << "\" [shape=diamond]\n";
-  d_dot << '"' << server << "\" -> \"" << rrdn << "\"" <<endl;
+  if(!d_dot) return;
+  (*d_dot) << '"' << rrdn << "\" [shape=diamond]\n";
+  (*d_dot) << '"' << server << "\" -> \"" << rrdn << "\"" <<endl;
 }
 
 /** This attempts to look up the name dn with type dt. The depth parameter is for 
