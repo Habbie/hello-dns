@@ -22,6 +22,9 @@ public:
   uint16_t d_endofrecord;
   //! are we at the end of a record?
   bool eor() const { return payloadpos == d_endofrecord; } 
+
+  //! For debugging, size of our payload
+  size_t size() const { return payload.size() + sizeof(struct dnsheader); }
   
   //! Copies the qname and type to you
   void getQuestion(DNSName& name, DNSType& type) const;
@@ -103,7 +106,6 @@ public:
   DNSClass d_qclass{(DNSClass)0};
   uint16_t d_bufsize;
   bool d_doBit{false};
-  
   bool d_haveEDNS{false};
 }; 
 
