@@ -7,6 +7,7 @@
 #include <random>
 #include "record-types.hh"
 #include <thread>
+#include <chrono>
 #include "nlohmann/json.hpp"
 /*! 
    @file
@@ -54,10 +55,10 @@ public:
 
   ResolveResult resolveAt(const DNSName& dn, const DNSType& dt, int depth=0, const DNSName& auth={}, const multimap<DNSName, ComboAddress>& mservers=g_root);
 
-  void createPlot(const std::string& fname)
+  void setPlot(ostream& fs)
   {
-    d_dot.open("plot.dot");
-    d_dot << "digraph { "<<endl;
+    d_dot = &fs;
+    (*d_dot) << "digraph { "<<endl;
   }
 
   void setLog(ostream& fs)
@@ -68,7 +69,7 @@ public:
   ~TDNSResolver()
   {
     if(d_dot)
-      d_dot << "}\n";
+      (*d_dot) << "}\n";
   }
   DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth=0);
 private:
@@ -80,15 +81,13 @@ private:
   unsigned int d_maxqueries{100};
 
   bool d_skipIPv6{false};
-  ofstream d_dot;
+  ostream* d_dot{nullptr};
   ostream* d_log{nullptr};
   ostream& lstream()
   {
-    if(d_log)
-      return *d_log;
-    else
-      return cout;
+    return d_log ? *d_log : cout;
   }
+
 public:
   unsigned int d_numqueries{0};
   unsigned int d_numtimeouts{0};
@@ -127,7 +126,8 @@ DNSMessageReader TDNSResolver::getResponse(const ComboAddress& server, const DNS
   std::string prefix(depth, ' ');
   prefix += dn.toString() + "|"+toString(dt)+" ";
 
-  if(auto iter = skips.find(std::tie(server,dn,dt)); iter != skips.end() && iter->second > 3  ) {
+  auto skipiter = skips.find(std::tie(server,dn,dt));
+  if(skipiter != skips.end() && skipiter->second > 3) {
     throw std::runtime_error("Skipping query to "+server.toString()+": failed before");
   }
   
@@ -303,7 +303,7 @@ TDNSResolver::ResolveResult TDNSResolver::resolveAt(const DNSName& dn, const DNS
       
       dmr.getQuestion(rrdn, rrdt); // parse into rrdn and rrdt
       
-      lstream() << prefix<<"Received response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
+      lstream() << prefix<<"Received a "<< dmr.size() << " byte response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<", aa: "<<dmr.dh.aa << endl;
       if(rrdn != dn || dt != rrdt) {
         lstream() << prefix << "Got a response to a different question or different type than we asked for!"<<endl;
         continue; // see if another server wants to work with us
@@ -439,6 +439,12 @@ TDNSResolver::ResolveResult TDNSResolver::resolveAt(const DNSName& dn, const DNS
             if(newns.empty())
               continue;
           }
+          catch(std::exception& e)
+          {
+            lstream() << prefix <<"Failed to resolve name for "<<name<<"|"<<qtype<<": "<<e.what()<<endl;
+            continue;
+          }
+
           catch(...)
           {
             lstream() << prefix <<"Failed to resolve name for "<<name<<"|"<<qtype<<endl;
@@ -612,6 +618,13 @@ try
 
   
   TDNSResolver tdr(g_root);
+  ostringstream logstream;
+  ostringstream dotstream;
+  tdr.setLog(logstream);
+  tdr.setPlot(dotstream);
+  
+  auto start = chrono::high_resolution_clock::now();
+
   int rc = EXIT_SUCCESS;
 
   nlohmann::json jres;
@@ -620,10 +633,9 @@ try
   jres["intermediate"]= nlohmann::json::array();
   jres["answer"]= nlohmann::json::array();  
   try {
-    tdr.createPlot("plot.dot");
-    //    ofstream devnull;
-    //    tdr.setLog(devnull);
+
     auto res = tdr.resolveAt(dn, dt);
+    
     jres["numqueries"]=tdr.d_numqueries;
     cout<<"Result of query for "<< dn <<"|"<<toString(dt)<< " ("<<res.intermediate.size()<<" intermediate, "<<res.res.size()<<" actual)\n";
     for(const auto& r : res.intermediate) {
@@ -662,7 +674,34 @@ try
   jres["numqueries"]=tdr.d_numqueries;
   jres["numtimeouts"]=tdr.d_numtimeouts;
   jres["numformerrs"]=tdr.d_numformerrs;
+  jres["trace"]=logstream.str();
+  auto finish = chrono::high_resolution_clock::now();
+  auto msecs = chrono::duration_cast<chrono::milliseconds>(finish-start);
+  
+  jres["msec"]= msecs.count();
+  {
+    ofstream tmpstr(dn.toString()+"dot");
+    tmpstr << dotstream.str();
+    tmpstr <<"}\n";
+    tmpstr.flush();
+  }
+
+  FILE* dotfp = popen(string("dot -Tsvg < "+dn.toString()+"dot").c_str(), "r");
+  if(!dotfp) {
+    cerr << "popen failed: " << strerror(errno) <<endl;
+  }
+  else {
+    char buffer[100000];
+    int siz = fread(buffer, 1, sizeof(buffer), dotfp);
+    //    unlink(string(dn.toString()+"dot").c_str());
+    jres["dot"]=std::string(buffer, siz);
+    pclose(dotfp);
+  }
   cout << jres << endl;
+
+  ofstream logfile(dn.toString()+"txt");
+  logfile << logstream.str();
+  
   std::vector<std::uint8_t> v_cbor = nlohmann::json::to_cbor(jres);
   FILE* out = fopen("cbor", "w");
   fwrite(&v_cbor[0], 1, v_cbor.size(), out);
