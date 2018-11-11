@@ -61,6 +61,12 @@ public:
     (*d_dot) << "digraph { "<<endl;
   }
 
+  void endPlot()
+  {
+    if(d_dot)
+      (*d_dot) << "}\n";
+  }
+  
   void setLog(ostream& fs)
   {
     d_log = &fs;
@@ -68,8 +74,6 @@ public:
   
   ~TDNSResolver()
   {
-    if(d_dot)
-      (*d_dot) << "}\n";
   }
   DNSMessageReader getResponse(const ComboAddress& server, const DNSName& dn, const DNSType& dt, int depth=0);
 private:
@@ -680,9 +684,10 @@ try
   
   jres["msec"]= msecs.count();
   {
+    tdr.endPlot();
+
     ofstream tmpstr(dn.toString()+"dot");
     tmpstr << dotstream.str();
-    tmpstr <<"}\n";
     tmpstr.flush();
   }
 
