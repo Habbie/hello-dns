@@ -30,7 +30,7 @@ Excellent resolvers that are freely available and open source include:
 So in short, before attempting to write a DNS resolver, ponder if you really
 need to. 
 
-As part of this project a [`teaching resolver`](tres.md.html) (or `tres`)is
+As part of this project a [`teaching resolver`](tdns/tres.md.html) (or `tres`) is
 provided.  Understanding `tres` and its source code is easier after reading
 this page.
 
