@@ -9,8 +9,9 @@
 //! Used by an RRGen to output record content to 'zone text' format
 /*! this exploits the similarity in writing/reading DNS messages
    and outputting master file format text */
-struct DNSStringWriter
+class DNSStringWriter
 {
+public:
   void xfrName(const DNSName& name)
   {
     if(!d_string.empty()) d_string.append(1, ' ');
