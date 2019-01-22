@@ -17,17 +17,17 @@ check: testrunner tauth tdig
 SIMPLESOCKET = ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o ext/simplesocket/ext/fmt-5.2.1/src/format.o
 
 tauth: tauth.o record-types.o dns-storage.o dnsmessages.o contents.o tdnssec.o $(SIMPLESOCKET)
-	g++ -std=gnu++14 $^ -o $@ -pthread
+	$(CXX) -std=gnu++14 $^ -o $@ -pthread
 
 tdig: tdig.o record-types.o dns-storage.o dnsmessages.o $(SIMPLESOCKET)
-	g++ -std=gnu++14 $^ -o $@ -pthread
+	$(CXX) -std=gnu++14 $^ -o $@ -pthread
 
 tres: tres.o record-types.o dns-storage.o dnsmessages.o $(SIMPLESOCKET)
-	g++ -std=gnu++14 $^ -o $@ -pthread
+	$(CXX) -std=gnu++14 $^ -o $@ -pthread
 
 
 tdns-c-test: tdns-c-test.o tdns-c.o record-types.o dns-storage.o dnsmessages.o $(SIMPLESOCKET)
-	g++ -std=gnu++14 $^ -o $@ 
+	$(CXX) -std=gnu++14 $^ -o $@ 
 
 testrunner: tests.o record-types.o dns-storage.o dnsmessages.o 
-	g++ -std=gnu++14 $^ -o $@ 
+	$(CXX) -std=gnu++14 $^ -o $@ 
