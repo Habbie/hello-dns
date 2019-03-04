@@ -453,7 +453,7 @@ answer from, which in this case is 'org'. Within the 'org' zone they then
 find the 'ietf' node, which again contains an NS RRSET.
 
 When we ask the servers named in that RRSET about 'www.ietf.org', they find
-a node called 'www' with several RRSETs on it, one if which is for AAAA and
+a node called 'www' with several RRSETs on it, one of which is for AAAA and
 contains the IPv6 address we were looking for.
 
 Any authoritative server which does not implement 'zones' in this way will
