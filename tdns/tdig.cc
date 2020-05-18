@@ -35,23 +35,24 @@ try
   
   Socket sock(server.sin4.sin_family, SOCK_DGRAM);
   SConnect(sock, server);
+
   SWrite(sock, dmw.serialize());
-  string resp =SRecvfrom(sock, 65535, server);
-
+  
+  string resp = SRecvfrom(sock, 65535, server);
+  
   DNSMessageReader dmr(resp);
-
+  
   DNSSection rrsection;
   uint32_t ttl;
-
+  
   dmr.getQuestion(dn, dt);
   
   cout<<"Received "<<resp.size()<<" byte response with RCode "<<(RCode)dmr.dh.rcode<<", qname " <<dn<<", qtype "<<dt<<endl;
-
+  
   std::unique_ptr<RRGen> rr;
   while(dmr.getRR(rrsection, dn, dt, ttl, rr)) {
     cout << rrsection<<" "<<dn<< " IN " << dt << " " << ttl << " " <<rr->toString()<<endl;
   }
-
 }
 catch(std::exception& e)
 {

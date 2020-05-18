@@ -55,6 +55,8 @@ using namespace std;
 
 void addAdditional(const DNSNode* bestzone, const DNSName& zone, const vector<DNSName>& toresolve, DNSMessageWriter& response);
 
+void reportQuery(DNSName qname, DNSClass qclass, DNSType qtype, const ComboAddress& remote);
+
 /** \brief This is the main DNS logic function
 
    This is the main 'DNS logic' function. It receives a set of zones,
@@ -82,6 +84,8 @@ bool processQuestion(const DNSNode& zones, DNSMessageReader& dm, const ComboAddr
   DNSName origname=qname; // we need this for error reporting, we munch the original name
   cout<<"Received a query from "<<remote.toStringWithPort()<<" for "<<qname<<" "<<dm.d_qclass<<" "<<qtype<<endl;
 
+  reportQuery(qname, dm.d_qclass, qtype, remote);
+  
   try {
     response.dh.id = dm.dh.id; response.dh.rd = dm.dh.rd;
     response.dh.ad = response.dh.ra = response.dh.aa = 0;
@@ -538,53 +542,46 @@ std::unique_ptr<DNSNode> retrieveZone(const ComboAddress& remote, const DNSName&
 }
 
 //! This is the main tdns function
-int main(int argc, char** argv)
+void launchDNSServer(vector<ComboAddress> locals)
 try
 {
-  if(argc < 2) {
-    cerr<<"Syntax: tdns ipaddress:port"<<endl;
-    return(EXIT_FAILURE);
-  }
   cout<<"Hello and welcome to tdns, the teaching authoritative nameserver"<<endl;
   signal(SIGPIPE, SIG_IGN);
-  
-  ComboAddress local(argv[1], 53);
-
-  Socket udplistener(local.sin4.sin_family, SOCK_DGRAM);
-  SBind(udplistener, local);
-  
-  Socket tcplistener(local.sin4.sin_family, SOCK_STREAM);
-  SSetsockopt(tcplistener, SOL_SOCKET, SO_REUSEPORT, 1);
-  SBind(tcplistener, local);
-  SListen(tcplistener, 10);
 
   DNSNode zones;
   cout<<"Loading & retrieving zone data"<<endl;
   loadZones(zones);
 
-  cout<<"Listening on TCP & UDP on "<<local.toStringWithPort()<<endl;
+  auto tcploop = [&](Socket* tcplistener, const ComboAddress local) {
+    cout<<"Listening on TCP on "<<local.toStringWithPort()<<endl;
+    for(;;) {
+      ComboAddress remote(local); // this sets the family correctly
+      int client = SAccept(*tcplistener, remote);
+      thread t(tcpClientThread, remote, client, &zones);
+      t.detach();
+    }
+  };
 
-  thread udpServer(udpThread, local, &udplistener, &zones);
+  for(const auto& local : locals) {
+    auto udplistener = new Socket(local.sin4.sin_family, SOCK_DGRAM);
+    SBind(*udplistener, local);
+    cout<<"Listening on UDP on "<<local.toStringWithPort()<<endl;
+    thread udpServer(udpThread, local, udplistener, &zones);
+    udpServer.detach();
 
-  for(int n = 2; n < argc; ++n) {
-    ComboAddress local2(argv[n], 53);
-    auto udplistener2 = new Socket(local2.sin4.sin_family, SOCK_DGRAM);
-    SBind(*udplistener2, local2);
-    cout<<"Listening on UDP on "<<local2.toStringWithPort()<<endl;
-    thread udpServer2(udpThread, local2, udplistener2, &zones);
-    udpServer2.detach();
+    auto tcplistener = new Socket(local.sin4.sin_family, SOCK_STREAM);
+    SSetsockopt(*tcplistener, SOL_SOCKET, SO_REUSEPORT, 1);
+    SBind(*tcplistener, local);
+    SListen(*tcplistener, 10);
+
+    
+    thread tcpLoop(tcploop, tcplistener, local);
+    tcpLoop.detach();
   }
-  
   cout<<"Server is live"<<endl;
-  for(;;) {
-    ComboAddress remote(local); // this sets the family correctly
-    int client = SAccept(tcplistener, remote);
-    thread t(tcpClientThread, remote, client, &zones);
-    t.detach();
-  }
+  pause();
 }
 catch(std::exception& e)
 {
   cerr<<"Fatal error: "<<e.what()<<endl;
-  return EXIT_FAILURE;
 }

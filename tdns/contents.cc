@@ -87,3 +87,7 @@ void loadZones(DNSNode& zones)
   zones.add({"ds9a", "nl"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"ds9a", "nl"});
   zones.add({"powerdns", "org"})->zone=retrieveZone(ComboAddress("52.48.64.3", 53), {"powerdns", "org"});
 }
+
+void reportQuery(DNSName qname, DNSClass qclass, DNSType qtype, const ComboAddress& remote)
+{
+}

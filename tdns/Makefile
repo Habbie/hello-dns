@@ -16,7 +16,7 @@ check: testrunner tauth tdig
 
 SIMPLESOCKET = ext/simplesocket/comboaddress.o ext/simplesocket/sclasses.o ext/simplesocket/swrappers.o ext/simplesocket/ext/fmt-5.2.1/src/format.o
 
-tauth: tauth.o record-types.o dns-storage.o dnsmessages.o contents.o tdnssec.o $(SIMPLESOCKET)
+tauth: tauth.o tauth-main.o record-types.o dns-storage.o dnsmessages.o contents.o tdnssec.o $(SIMPLESOCKET)
 	$(CXX) -std=gnu++14 $^ -o $@ -pthread
 
 tdig: tdig.o record-types.o dns-storage.o dnsmessages.o $(SIMPLESOCKET)
