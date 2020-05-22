@@ -468,13 +468,13 @@ will start like this:
 ```
 $ORIGIN ietf.org.
 @	IN	SOA	ns1  admin 2018032802 1800 900 604800 86400
-	IN	NS	ns1
-	IN	NS	ns2
+@	IN	NS	ns1
+@	IN	NS	ns2
 ```
 
 Note how in this zone file example names not ending on a '.' are interpreted
 as being part of ietf.org. The '@' is a way to specify the name of the
-apex. Lines two and three omit a name, so they default to '@' too.
+apex, so lines two and three indicate that the apex of this zone has two NS records.
 
 This zone lists ns1.ietf.org and ns2.ietf.org as its nameservers.
 Being part of the zone, this data is *authoritative*. Any queries sent to
@@ -562,7 +562,7 @@ Wildcards allow for the following:
 ```
 $ORIGIN ietf.org.
 *	IN	A	192.0.2.1
-	IN	AAAA	2001:db8:85a3::8a2e:0370:7334
+*	IN	AAAA	2001:db8:85a3::8a2e:0370:7334
 smtp	IN	A	192.0.2.222
 ```
 
