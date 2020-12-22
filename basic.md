@@ -410,7 +410,7 @@ $origin www.ietf.org
 
 
 ### Start of Authority
-A zone always starts with a SOA or Start Of Authority record.  A SOA record
+A zone always has a SOA or Start Of Authority record.  A SOA record
 is DNS metadata.  It stores various things that may be of interest about a
 zone, like the email address of the maintainer, the name of the most
 authoritative server.  It also has values that describe how or if a zone
