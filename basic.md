@@ -608,8 +608,8 @@ Authority section of the response. The TTL of that record tells us how long
 the knowledge of 'no such name' or 'no such data' can be cached.
 
 ## Query types that are not RRSET types
-In addition to the resource record types covered above, like A, AAAA, NS and
-SOA, two additional types exist that can only be used in queries: ANY, AXFR
+In addition to the resource record types covered above, like A, AAAA, NS, and
+SOA, two additional types exist that can only be used in queries: ANY, AXFR,
 and IXFR.
 
 An ANY query instructs a nameserver to return all types it immediately has
