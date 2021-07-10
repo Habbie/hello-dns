@@ -482,7 +482,7 @@ this nameserver for the NS RRSET of 'ietf.org' will receive responses
 with the AA bit set.
 
 Note however that above we learned that the parent zone, 'org' also needs to
-list the nameservers for example.org, and it does:
+list the nameservers for ietf.org, and it does:
 
 ```
 $ORIGIN org.
