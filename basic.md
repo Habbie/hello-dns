@@ -337,7 +337,7 @@ Or in graphical form:
 
 The 'tree' of nodes as shown above is real and not just another way of
 visualizing a DNS name.  This for example means that if there is a name
-called 'ns1.ord.ietf.org' and a query comes in for 'ns2.fra.ietf.org', that
+called 'ns1.ord.ietf.org' and a query comes in for 'ord.ietf.org', that
 name exists - even though no records may be assigned to it.
 
 The 'org' zone for example might look like this:
