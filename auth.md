@@ -214,14 +214,24 @@ periodically check the master server to find out if there have been any
 updates that need to be retrieved.
 
 Since this periodic check may be far in the future, optionally master
-servers can send out notifications when they load new zone data.
+servers can send out notifications when they load new zone data, thus
+reducing the latency in propagating changes to the contents of a zone.
 
 Notification was not in 1034/1035 and is described well in [RFC
 1996](https://tools.ietf.org/html/rfc1996).
 
 In short, a notification is a regular DNS message, sent out as a query, but
-then with OPCODE=5. Notifications are repeated until acknowledged by the
-slave server.
+then with OpCode=4 [Domain Name System (DNS) Parameters](https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-5).
+Notifications are repeated until acknowledged by the slave server.
+
+## Replication continued: incremental zone transfers
+The zone transfer mechanism (AXFR) is not an efficient means to propagate 
+changes to a small part of a zone, as it transfers the entire zone file.
+
+Incremental transfer (IXFR) is a more efficient mechanism, as it transfers
+only the changed portion(s) of a zone.
+
+<< Client sends qtype=251 (IXFR) with SOA in additional section >>
 
 # TBC
 
