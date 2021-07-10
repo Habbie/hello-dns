@@ -3,7 +3,7 @@
 
 # EDNS, Dynamic Updates, TSIG, DNAME, DNS Cookies & more
 So far we've focussed on the simplest possible form of DNS that is
-interoperable with today's internet. Over the past 3 decades however, a lot
+interoperable with today's Internet. Over the past 3 decades however, a lot
 has been added to DNS.
 
 Items relevant for authoritative servers and resolvers:
@@ -75,7 +75,7 @@ of supporting new types shifts to the client.
 Dynamic Update access is generally limited by some combination of client IP
 address, RR name and/or type, or message signature such as TSIG or more rarely
 SIG(0). For example, on a trusted network clients may be allowed to update a
-reverse entry based on their IP address. Over the internet controls using
+reverse entry based on their IP address. Over the Internet controls using
 stronger authentication like TSIG or SIG(0) should be employed.
 
 On the wire DNS UPDATE uses the standard DNS message format with some

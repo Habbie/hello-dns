@@ -148,7 +148,7 @@ Specifically, this means not using wildcards for NS records or in other
 exciting places.
 
 # SOA Records
-There is only one SOA that is guaranteed to exist on the internet and that
+There is only one SOA that is guaranteed to exist on the Internet and that
 is the one for the root zone (called `.`).  As of 2018, it looks like this:
 
 ```

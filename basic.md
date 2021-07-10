@@ -417,7 +417,7 @@ authoritative server.  It also has values that describe how or if a zone
 needs to be replicated.  Finally, the SOA record has a number that
 influences TTL values for names that do not exist.
 
-There is only one SOA that is guaranteed to exist on the internet and that
+There is only one SOA that is guaranteed to exist on the Internet and that
 is the one for the root zone (called '.').  As of 2018, it looks like this:
 
 ```

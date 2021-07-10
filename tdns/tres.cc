@@ -313,7 +313,7 @@ TDNSResolver::ResolveResult TDNSResolver::resolveAt(const DNSName& dn, const DNS
         continue; // see if another server wants to work with us
       }
 
-      // in a real resolver, you must ignore NXDOMAIN in case of a CNAME. Because that is how the internet rolls.
+      // in a real resolver, you must ignore NXDOMAIN in case of a CNAME. Because that is how the Internet rolls.
       if((RCode)dmr.dh.rcode == RCode::Nxdomain) {
         lstream() << prefix<<"Got an Nxdomain, it does not exist"<<endl;
         throw NxdomainException();
