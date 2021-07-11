@@ -168,7 +168,7 @@ all means not always, this is a date in proper order (YYYYMMDD), followed by
 two digits indicating updates over the day.  This serial number is used for
 replication purposes, as are the following 3 numbers.
 
-Zones are hosted on 'masters`. Meanwhile, 'slave' servers poll the master
+Zones are hosted on 'masters'. Meanwhile, 'slave' servers poll the master
 for updates, and pull down a new zone if they see new contents, as noted by
 an increase in serial number.
 
