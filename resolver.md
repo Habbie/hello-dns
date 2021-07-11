@@ -41,8 +41,8 @@ send the same query for the full query name to a series of ever more
 specific nameservers.
 
 So, to resolve `www.powerdns.com`, send a query for that name to one of the
-26 root-server IP address.  The root-servers will return a non-authoritative
-answer ('aa=0') with the NS records of the `COM` servers, and helpfully also
+26 root-server IP addresses.  The root-servers will return a non-authoritative
+answer ('AA=0') with the NS records of the `COM` servers, and helpfully also
 provide IP addresses for those servers.
 
 The resolver can believe these NS records and even the 'glue' - we trust the
@@ -51,7 +51,7 @@ root-servers to serve the root and everything under it.
 Based on the IP addresses provided in the glue, the same `www.powerdns.com`
 query can now be sent to one of the `COM` servers, which in turn replies
 with another non-authoritative answer that does however list the names & IP
-addresses for the `powerdns.com` zones. 
+addresses for the `powerdns.com` zone's nameservers.
 
 Finally, the `www.powerdns.com` query can get sent to one of the
 `powerdns.com` nameserver IP addresses, and finally an answer arrives.
@@ -65,7 +65,7 @@ root-servers again provide the first help by telling us about the `ORG`
 nameservers & their IP addresses. 
 
 When we then ask the `ORG` nameservers for `www.powerdns.org`, these return
-with a set of nameservers for `powerdns.org`.. but no IP addresses. This is
+with a set of nameservers for `powerdns.org`, but no IP addresses. This is
 because the `powerdns.org` nameservers do not reside in the `ORG` zone.
 
 This means that the same algorithm we are using to resolve
