@@ -131,7 +131,7 @@ question.  It was originally intended that DNS records would exist in
 different 'classes', but the semantics of this were not specified completely
 and it was not really implemented.  For now, always set class to 1.
 
-The query name, type and class are also called 'qname', 'qtype' and 'qclass'
+The query name, type and class are also called 'QNAME', 'QTYPE' and 'QCLASS'
 respectively.
 
 Of specific note is the somewhat unusual way the name 'www.ietf.org' is

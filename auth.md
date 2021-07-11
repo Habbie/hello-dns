@@ -60,8 +60,8 @@ Fundamentally, the following answers are possible (this omits CNAME and
 wildcard processing, more about which below).
 
 1. No applicable zone is loaded. Send REFUSED answer.
-2. From best zone, there was an exact match for the qname and qtype, send RRSET, set NO ERROR
-3. From best zone, the name queried exists, but no matching qtype and no NS type present (send NO DATA)
+2. From best zone, there was an exact match for the QNAME and QTYPE, send RRSET, set NO ERROR
+3. From best zone, the name queried exists, but no matching QTYPE and no NS type present (send NO DATA)
 4. From best zone, the name may exist, but there is a node or a parent has an NS record. Send delegation
 
 
