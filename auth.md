@@ -122,7 +122,7 @@ alternate way to describe the process is as follows:
     `org`, otherwise try the root zone. If no zones were found, send out  
     REFUSED.  
  3. Within the first zone that matched (say, `org`), search for `www.ietf`.
-    If that was not found, search for `ietf` etc etc
+    If that was not found, search for `ietf` etc. etc.
 
 This is effectively the same thing but implemented on a regular key/value
 lookup engine.
