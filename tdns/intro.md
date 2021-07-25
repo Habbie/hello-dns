@@ -5,7 +5,7 @@ Note: this page is part of the
 '[hello-dns](https://powerdns.org/hello-dns/)' documentation effort.
 
 
-# teaching DNS
+# Teaching DNS
 Welcome to tdns, a 'from scratch' teaching authoritative server,
 implementing all of [basic DNS](https://powerdns.org/hello-dns/basic.md.html) in
 ~~1400~~ ~~1500~~ 1600 lines of code.  Code is
@@ -38,7 +38,7 @@ The goals of tdns are:
  * **Be a living warning for how hard it is to write a nameserver correctly**
 
 The target audience of `tdns` is anyone pondering or actually implementing
-an authoritative nameserver or a stub resolver. 
+an authoritative nameserver or a stub resolver.
 
 Non-goals are:
 
@@ -74,7 +74,7 @@ There is no shortage of nameservers.  In fact, there is an embarrassing
 richness of very good ones out there already.  So why bother?  The biggest
 problem with DNS today is not the great open source implementations.  It is
 the absolutely dreadful stuff we find in appliances, modems, load balancers,
-CDNs, CPEs and routers.
+CDNs, CPEs, and routers.
 
 The DNS community frequently laments how much work our resolvers have to do
 to work around broken implementations.  In fact, we are so fed up with this
@@ -86,9 +86,9 @@ In addition, with the advent of RFCs like [RFC
 8020](https://tools.ietf.org/html/rfc8020) sending incorrect answers will
 start wiping out your domain name.
 
-However, we can't put the all (or even most) of the blame for disappointing
+However, we can't put all (or even most) of the blame for disappointing
 quality on the embedded and closed source implementation community.  It was
-indeed frighteningly hard to out find how to write a correct authoritative
+indeed frighteningly hard to find out how to write a correct authoritative
 nameserver.
 
 Existing open source nameservers are all highly optimized and/or have
@@ -97,9 +97,9 @@ this means is that actually reading that code to learn about DNS is not
 easy.  Achieving millions of queries per second does not leave the luxury of
 keeping code in an accessible or educational state.
 
-`tdns` addresses this gap by being a 1500 line long server that is well
+`tdns` addresses this gap by being a 1600 line long server that is well
 documented and commented. Any competent programmer can read the entire
-source code a few hours and observe how things really should be done.
+source code in a few hours and observe how things really should be done.
 
 ## That sounds like hubris
 In a sense, this is by design. `tdns` attempts to do everything not only
@@ -108,33 +108,33 @@ nameserver that is fully compliant to all relevant standards and lore.
 
 It is hoped that the DNS community will rally to this cause and pore over
 the `tdns` source code to spot everything that could potentially be wrong or
-could be done better. 
+could be done better.
 
 In other words, where `tdns` is currently not right, we hope that with
 sufficient attention it soon will be. Bikeshed away!
 
-# How did all those features fit in ~1500 lines?
+# How did all those features fit in ~1600 lines?
 Key to a good DNS implementation is having a faithful DNS storage model,
 with the correct kind of objects in them.
 
 Over the decades, many many nameservers have started out with an incorrect
 storage model, leading to pain later on with empty non-terminals, case
-sensitivity, setting the 'AA' bit on glue (or not) and eventually DNSSEC
+sensitivity, setting the 'AA' bit on glue (or not), and eventually DNSSEC
 ordering problems.
 
 When storing DNS as a tree, as described in [RFC
 1034](https://tools.ietf.org/html/rfc1034), a lot of things go right
 "automatically".  When DNS Names are a fundamental type composed out of DNS
 Labels with the correct case-insensitive equivalence and identity rules,
-lots of problems can never happen.  Tons of conversion mechanics also does
+lots of problems can never happen.  Tons of conversion mechanics also do
 not need to be typed in (or forgotten in some places).
 
 The core of `tdns` therefore is the tree of nodes as intended in 1034,
 containing DNS native objects like `DNSLabel`s and `DNSName`s. These get
-escaping, case sensitivity and binary correctness right 'automatically'.
+escaping, case sensitivity, and binary correctness right 'automatically'.
 
-## The DNS Tree
-Of specific note is the DNS Tree as described in RFC 1034.  Because DNS is
+## The DNS tree
+Of specific note is the DNS tree as described in RFC 1034.  Because DNS is
 never shown to us as a tree, and in fact is usually presented as a flat
 'zone file', it is easy to ignore the tree-like nature of DNS.
 
@@ -158,7 +158,7 @@ never shown to us as a tree, and in fact is usually presented as a flat
 *               '-+-'    '---'                                                                  *                   
 *                                                                                               *
 *************************************************************************************************
-[Figure [diagram]: DNS Tree containing data nodes `ns1.ord.ietf.org`, `ns2.fra.ietf.org`, `ietf.org` and `org` ] 
+[Figure [diagram]: DNS tree containing data nodes `ns1.ord.ietf.org`, `ns2.fra.ietf.org`, `ietf.org` and `org` ]
 
 To find nodes within the DNS tree, start matching from the top. This zone is
 called `org`, so at depth 4 we can find `ns1.ord.ietf.org`, after first
@@ -175,21 +175,21 @@ By reusing the same logic three times, there is less code to type and less
 to explain.
 
 Interestingly, when asked (via Paul Vixie), Paul Mockapetris indicated he
-was surprised that the DNS Tree could in fact be reused for DNS name
+was surprised that the DNS tree could in fact be reused for DNS name
 compression. This 2018 discovery in a 1985 protocol turns out to work
 surprisingly well!
 
 ## Putting the tricky bits at a fundamental level
-DNS names look surprisingly like text strings, but they very much are not. 
+DNS names look surprisingly like text strings, but they very much are not.
 For starters, DNS is case insensitive in its own special way, and such rules
 must be obeyed for DNSSEC to ever work.
 
 Furthermore, despite appearances, DNS is 8-bit safe. This means that
 individual DNS labels (usually separated by dots) can contain embedded 0
-characters, but also actual dots themselves.
+bytes, but also actual dots themselves.
 
 A lot of code 'up the stack' can be simplified by having basic types that
-are fully DNS native, like DNS Labels which are case insensitive, stored in
+are fully DNS native, like DNS labels which are case insensitive, stored in
 binary and length limited by themselves.
 
 Code that uses "strings" for DNS may struggle to recognize (in all places!)
@@ -227,7 +227,7 @@ And in the packet, this very same record looks like this:
 *    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    *
 ***********************************************************
 
-DNS Records need to be: 1) parsed from a message 2) serialized to a message
+DNS records need to be: 1) parsed from a message 2) serialized to a message
 3) parsed from zone file format 4) emitted in zone file format.
 
 It turns out these four conversions exhibit complete symmetry for all
@@ -236,7 +236,7 @@ regular DNS resource types.
 This means we can define one conversion 'operator':
 
 ```
-void SOAGen::doConv(auto& x) 
+void SOAGen::doConv(auto& x)
 {
   x.xfrName(d_mname);     x.xfrName(d_rname);
   x.xfrUInt32(d_serial);  x.xfrUInt32(d_refresh);
@@ -252,7 +252,7 @@ SOAGen::SOAGen(DNSMessageReader& dmr)         { doConv(dmr); }
 void SOAGen::toMessage(DNSMessageWriter& dmw) { doConv(dmw); }
 SOAGen::SOAGen(StringReader& sr)              { doConv(sr);  }
 
-std::string SOAGen::toString() 
+std::string SOAGen::toString()
 {
   StringBuilder sb;
   doConv(sb);
@@ -274,7 +274,7 @@ languages (like Go and Rust).
 [README](https://powerdns.org/hello-dns/tdns/README.md.html).  In addition,
 the code is richly commented with Doxygen annotations, which can be seen
 [here](https://powerdns.org/hello-dns/tdns/codedocs/html/).  The code itself
-meanwhile is on [GitHub](https://github.com/ahuPowerDNS/hello-dns)
+meanwhile is on [GitHub](https://github.com/ahuPowerDNS/hello-dns).
 
 
 <script>
