@@ -57,7 +57,7 @@ insensitive (in its own unique way), and so is DNSLabel. So for example:
 	DNSLabel a("www"), b("WWW");
 	if(a==b) cout << "The same\n";
 ```
-Will print 'the same'.
+Will print 'The same'.
 
 In DNS a label consists of between 1 and 63 characters, and these characters
 can be any 8 bit value, including `0x0`. By making our fundamental data type
@@ -67,7 +67,7 @@ of this right.
 When DNS labels contain spaces or other non-ascii characters, and a label
 needs to be converted for screen display or entry, escaping rules apply. The
 only place in a nameserver where these escaping rules should be enabled is
-in the parsing or printing of DNS Labels.
+in the parsing or printing of DNS labels.
 
 The input to a `DNSLabel` is an unescaped binary string. The escaping
 example from RFC 4343 thus works like this:
@@ -78,7 +78,7 @@ example from RFC 4343 thus works like this:
 ```
 
 ## DNSName
-A sequence of DNS Labels makes a DNS name. We store such a sequence as a
+A sequence of DNS labels makes a DNS name. We store such a sequence as a
 `DNSName`. To make this safe, even in the face of embedded dots, spaces and
 other things, within `tdns` we make no effort to parse `www.powerdns.com` in
 the code. Instead, use this:
@@ -110,7 +110,7 @@ again emphasise how we interpret the input as binary, ponder:
 ```
 
 ## DNSType, RCode, DNSSection
-These is an enums that contains the names and numerical values of the DNS
+These are enums that contain the names and numerical values of the DNS
 types and error codes.  This means for example that `DNSType::A` corresponds
 to 1 and `DNSType::SOA` to 6.
 
@@ -126,7 +126,7 @@ the printing of `DNSTypes` as symbolic names. Sample:
 ```
 
 Similar enums are defined for RCodes (response codes, RCode::Nxdomain for
-example) and DNS Sections (Question, Answer, Nameserver/Authority,
+example) and DNS sections (Question, Answer, Nameserver/Authority,
 Additional). These too can be printed.
 
 ## `tdig`
@@ -149,7 +149,7 @@ The code:
 ```
 
 This starts out with the basics: it reads a `DNSName` from the first
-argument to `tdns`, a `DNSType` from the second and finally a server IP
+argument to `tdig`, a `DNSType` from the second and finally a server IP
 address from the third argument.
 
 With this knowledge, in line 8 we create a `DNSMessageWriter` to make a
@@ -233,7 +233,7 @@ like this:
 `RRGen`s also know how to serialize themselves from a `DNSMessageReader`, or how to
 write themselves out to a `DNSMessageWriter`.
 
-When reading DNS Messages (see below), `DNSMessageReader::getRR()` will
+When reading DNS messages (see below), `DNSMessageReader::getRR()` will
 return `RRGen` instances to you, if you want to do more than print their
 contents, you need to cast them to the specific type, for example:
 
@@ -252,7 +252,7 @@ extracts the IP address - all without using ASCII.
 ## DNSMessageReader
 This class reads a DNS message, and makes available:
  
- * The query name (qname) and type (qtype)
+ * The query name (QNAME) and type (QTYPE)
  * The dnsheader containing the flags
  * EDNS buffer size and value of DNSSEC Ok flag
 
@@ -283,7 +283,7 @@ also be added together as RRSets, and in 'section order'.
 Internally `DNSMessageWriter` again only uses bounds checked methods for
 modifying its state.
 
-A `DNSMessageWriter` has a maximum length (set via its constructor).  If new
+A `DNSMessageWriter` has a maximum length (set via its constructor).  If a new
 resource record, as written by `putRR`, would exceed this maximum length,
 that record is rolled back and a std::out_of_range() exception is thrown. 
 This allows the caller to either truncate or decide this data was optional
@@ -299,7 +299,7 @@ and
 
 ### Compression
 DNS compression is unreasonably difficult to get right. In what happens to
-be a coincidence, it turns out the DNS Tree can also be used to perform
+be a coincidence, it turns out the DNS tree can also be used to perform
 DNS name compression.
 
 For every invocation of `putName()` in `DNSMessageWriter()` we check the DNS
@@ -320,7 +320,7 @@ this in `serialize()`.
 
 
 # Internals
-`tdns` uses several small pieces of code not core to dns:
+`tdns` uses several small pieces of code not core to DNS:
 
  * [nenum](https://github.com/ahupowerdns/hello-dns/blob/master/tdns/nenum.hh)
    this is a simple 'named ENUM' construct that enables the printing of
